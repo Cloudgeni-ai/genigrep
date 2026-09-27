@@ -118,6 +118,8 @@ describe("isSecretPath", () => {
       ".ssh/config",
       "home/.aws/credentials",
       ".docker/config.json",
+      ".ssh",
+      "home/.aws",
     ];
     const ordinary = [
       ".env.example",
@@ -220,6 +222,13 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(only).toEqual({ stdout: "", exitCode: 1, truncated: false, timedOut: false });
     expect(await ws.readText(".env", { maxBytes: 1000 })).toBeNull();
     expect(await ws.pathKinds([".env", "src"], {})).toEqual({ ".env": "missing", src: "directory" });
+  });
+
+  test("never reads a secret file through a link", async () => {
+    const root = tree({ ".env": "API_TOKEN=live-value\n" });
+    symlinkSync(join(root, ".env"), join(root, "innocent.txt"));
+    const ws = new LocalWorkspace(root);
+    expect(await ws.readText("innocent.txt", { maxBytes: 1000 })).toBeNull();
   });
 
   test("reads text within bounds and flags binary files", async () => {

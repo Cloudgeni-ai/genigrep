@@ -372,7 +372,10 @@ async function auth(command: AuthCommand, io: CliIo): Promise<number> {
     } catch (error) {
       const { kind, message } = describeFailure(error, io.signal);
       if (kind === "interrupted") return EXIT.INTERRUPTED;
-      io.stderr(`genigrep: ${message.replace(/ Search with rg or grep instead\.$/, "")}\n`);
+      const reason = message
+        .replace(/ Search with rg or grep instead\.$/, "")
+        .replace(/ Run `genigrep auth` to store a valid key\.$/, "");
+      io.stderr(`genigrep: ${reason}\n`);
       io.stderr("genigrep: nothing was stored (use --no-verify to store the key anyway)\n");
       return EXIT.JEV;
     }

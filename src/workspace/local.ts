@@ -172,7 +172,9 @@ export class LocalWorkspace implements CodeSearchWorkspace {
     if (this.isExcludedPath(path)) return null;
     let fh: Awaited<ReturnType<typeof open>> | null = null;
     try {
-      if (!this.contains(await realpath(abs))) return null;
+      const real = await realpath(abs);
+      // A link may point anywhere: the target must be inside the root and not a secret file either.
+      if (!this.contains(real) || this.isExcludedPath(relative(this.root, real))) return null;
       fh = await open(abs, "r");
       const st = await fh.stat();
       if (!st.isFile()) return null;

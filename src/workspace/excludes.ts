@@ -105,7 +105,7 @@ export function isSecretPath(relPath: string): boolean {
   const parts = relPath.split(/[\\/]+/).filter((p) => p && p !== ".");
   const name = parts[parts.length - 1];
   if (!name) return false;
-  if (parts.slice(0, -1).some((dir) => SECRET_DIRS.has(dir))) return true;
+  if (parts.some((part) => SECRET_DIRS.has(part))) return true;
   if (name === "config.json" && parts[parts.length - 2] === ".docker") return true;
   if (SECRET_NAMES.has(name)) return true;
   return SECRET_NAME_PATTERNS.some((re) => re.test(name));
