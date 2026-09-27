@@ -1,0 +1,46 @@
+name: Search quality
+description: genigrep missed the code that answers a question, or ranked the wrong code first.
+labels: [search-quality]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ranking problems are only reproducible on code we can see, so reports about public repositories
+        help most. Do not paste private code or your API key.
+  - type: input
+    id: repository
+    attributes:
+      label: Repository and commit
+      description: A public repository URL and commit, if you can share one.
+      placeholder: https://github.com/owner/repo at abc1234
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command, including the question, keywords (-k) and any -s or --in flags.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: The code that answers the question
+      description: The files and line ranges genigrep should have returned.
+      placeholder: src/retry.ts:40-72
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What genigrep returned
+      description: The status line, the passage headers and the leads (the `== path:start-end` lines are enough). Output with `-v` helps.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: genigrep version
+      placeholder: genigrep --version
+    validations:
+      required: true

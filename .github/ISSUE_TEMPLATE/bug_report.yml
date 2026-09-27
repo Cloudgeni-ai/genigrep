@@ -1,0 +1,61 @@
+name: Bug report
+description: genigrep crashed, failed with the wrong exit code, or did something it should not.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Never paste your API key. Remove private code, file paths and repository
+        names you do not want to make public. For poor search results, use the "Search quality" template.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, and what happened instead.
+      placeholder: |
+        genigrep "..." -k ... --json
+        Expected: ...
+        Got: ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The relevant stdout and stderr, and the exit code (`echo $?`). Run with `-v` for stage details.
+      render: text
+  - type: textarea
+    id: doctor
+    attributes:
+      label: genigrep doctor --json
+      description: Its output shows versions and whether ripgrep and the key work. It never prints the key; remove local paths if needed.
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen?
+      options:
+        - Command line
+        - MCP server (genigrep mcp)
+        - Agent skill
+        - Library
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Agent or MCP client and version
+      description: For example Claude Code, Codex or Cursor, if it happened inside an agent.
+  - type: dropdown
+    id: install
+    attributes:
+      label: How genigrep is installed
+      options:
+        - npm install -g
+        - npx
+        - From source
+        - Other
+    validations:
+      required: true

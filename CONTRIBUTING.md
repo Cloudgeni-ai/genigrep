@@ -31,6 +31,23 @@ over-trust the search and answer worse, so keep that meaning in any text an agen
 the MCP tool description and instructions (`src/mcp/server.ts`) and the agent skill
 (`skills/genigrep/SKILL.md`).
 
+## Documentation
+
+- [README.md](README.md) is the entry point: install, agent setup, measured results, cost, privacy,
+  configuration and limitations. Keep it short and link to details.
+- [docs/how-it-works.md](docs/how-it-works.md) describes the pipeline and its limits with the default
+  numbers. Update it in the same pull request when you change a default, a limit, the ignore lists, what
+  is sent to Jev, or the output format.
+- Results in the README must come from a real evaluation with its sample size and intervals. Do not add
+  numbers without them.
+- Write plain, concise English and use plain hyphens rather than em dashes.
+
+## Reporting problems
+
+Use the issue templates: "Bug report" for crashes and wrong behavior, "Search quality" when genigrep
+misses or misranks the code that answers a question (a public repository makes it reproducible). Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
+
 ## Pull requests
 
 - Keep commits focused and describe the user-visible effect.

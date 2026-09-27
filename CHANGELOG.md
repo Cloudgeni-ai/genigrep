@@ -17,3 +17,5 @@ First version, ported from OpenGeni's `code_search` agent tool (`packages/jev`).
   limited to the directories given, the client's roots or the working directory.
 - An Agent Skill in `skills/genigrep` for Claude Code, Codex and other agents.
 - A credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`) is never searched as the root.
+- Documentation: README, `docs/how-it-works.md` (pipeline, limits, output, what is sent to Jev, MCP
+  server), security policy, contributing guide and GitHub issue templates.

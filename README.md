@@ -1,20 +1,76 @@
 # genigrep
 
-Ask a question about a codebase, get back only the source that answers it. Jev-ranked code search for
-coding agents.
+Ask a question about a codebase, get back only the source that answers it.
 
 [![CI](https://github.com/Cloudgeni-ai/genigrep/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudgeni-ai/genigrep/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-genigrep runs one wide ripgrep pass for your keywords, has [TypeSafe Jev](https://typesafe.ai) (a fast
-judge model) rank the candidate files and verify line-numbered passages, follows definitions one level,
-and prints the best passages verbatim with their paths and line numbers. One call replaces the usual
-loop of `rg`, `sed -n`, `cat` and "let me look at that file too", so an agent spends fewer turns and
-tokens getting to the code that matters.
+genigrep is code search for coding agents, and for people. You give it a question and a few likely
+keywords. It finds candidate files with ripgrep, has a small and cheap judge model rank the files and
+check the passages, and prints the passages that answer the question, verbatim with paths and line
+numbers.
 
-It is the `code_search` tool from [OpenGeni](https://github.com/Cloudgeni-ai/opengeni), packaged as a
-standalone command line tool, an [MCP server](#mcp-server) and a library, with an
-[agent skill](#agent-skill) that teaches coding agents when to use it.
+It runs as a command line tool, an [MCP server](#mcp-server) and a library, and comes with an
+[agent skill](#agent-skill).
+
+## Why
+
+A coding agent that needs to know "where is X decided?" usually loops: search, read a file, search
+again, read another file. Every step is a call to an expensive model that re-reads the whole
+conversation. genigrep does the search in one call. A cheap judge model, TypeSafe Jev, decides which
+files and passages are relevant, and genigrep returns only those. The agent still does the reasoning;
+it just starts from the right code.
+
+On 26 code investigation questions, inside the OpenGeni agent harness, this cut the agent's cost by
+about 7% and its time by about 10% at equal answer quality. It had no measurable effect on bug-fixing
+tasks. See [Measured results](#measured-results).
+
+## Install
+
+Requires Node.js 20 or newer, or Bun. Tested on Linux and macOS.
+
+```bash
+npm install -g genigrep
+```
+
+ripgrep comes with it through the [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep)
+package. If that binary is missing, genigrep uses `rg` from your PATH. `GENIGREP_RG_PATH` picks a
+specific binary.
+
+From source:
+
+```bash
+git clone https://github.com/Cloudgeni-ai/genigrep.git && cd genigrep
+bun install && bun run build && npm link
+```
+
+## Quick start
+
+1. Get a TypeSafe API key with Jev access from [TypeSafe](https://typesafe.ai).
+2. Store it. genigrep asks for it without echoing, checks it with one small Jev call and saves it with
+   mode `600`:
+
+   ```bash
+   genigrep auth
+   ```
+
+   Or set `GENIGREP_JEV_API_KEY` in the environment instead.
+3. Ask a question about the current directory:
+
+   ```bash
+   genigrep "How is the retry delay computed?" .
+   ```
+
+Without `-k`, genigrep derives keywords from the question. Results are better when you name likely
+identifiers, config keys and error strings yourself:
+
+```bash
+genigrep "How is the retry delay computed?" -k retryDelay,backoff,RETRY_MAX,retry-after,maxDelay
+```
+
+`genigrep doctor` checks ripgrep, the config and the key if something does not work.
+
+Example, run against the public OpenGeni repository (`...` marks lines cut here):
 
 ```console
 $ genigrep "Where is the Codex usage limit error classified?" \
@@ -28,12 +84,6 @@ Passages are verbatim with original line numbers (N| text), grouped by file, bes
 903| export const CODEX_USAGE_LIMIT_ERROR_TYPE = "usage_limit_reached";
 ...
 918| export function classifyCodexUsageLimitError(error: unknown): CodexUsageLimitInfo | null {
-919|   let cur: unknown = error;
-920|   for (let depth = 0; depth < 6 && cur && typeof cur === "object"; depth++) {
-...
-
-== docs/codex-subscription-rotation.md:467-504  rel 0.93  (trimmed from 456-504)
-   in L210: ### Same-turn capacity recovery
 ...
 
 More candidates (not included; read if needed):
@@ -42,73 +92,7 @@ Leads not followed: CodexAccountStatus (0.48) @apps/worker/src/activities/agent-
 genigrep: 15 passages from 10 files, ~10.5k tokens | 2.3s | jev 17 requests, 91.3k input tokens, $0.0038
 ```
 
-(Run against the public OpenGeni repository; `...` marks lines cut from this README.)
-
-## Contents
-
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Usage](#usage)
-- [Using genigrep from a coding agent](#using-genigrep-from-a-coding-agent)
-  - [Agent skill](#agent-skill)
-  - [MCP server](#mcp-server)
-  - [Instructions snippet](#instructions-snippet)
-- [How it works](#how-it-works)
-- [What is sent to Jev](#what-is-sent-to-jev)
-- [Cost and speed](#cost-and-speed)
-- [Evidence](#evidence)
-- [Configuration](#configuration)
-- [Library](#library)
-- [Development](#development)
-- [Origin and license](#origin-and-license)
-
-## Install
-
-Requires Node.js 20 or newer (Bun works too). Linux and macOS are tested; Windows is not tested yet.
-
-genigrep is not on npm yet. Until it is, build it from source:
-
-```bash
-git clone https://github.com/Cloudgeni-ai/genigrep.git
-cd genigrep
-bun install && bun run build
-npm link            # puts `genigrep` on your PATH
-```
-
-Once published, it will be:
-
-```bash
-npm install -g genigrep
-```
-
-ripgrep comes with it: the [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep) package
-installs a prebuilt `rg` for your platform. If that binary is missing, genigrep uses `rg` from your
-PATH, and `GENIGREP_RG_PATH` picks a specific binary.
-
-## Quick start
-
-1. Get a TypeSafe API key with Jev access from [TypeSafe](https://typesafe.ai).
-2. Store it. genigrep asks for it without echoing it, checks it with one tiny Jev call and saves it
-   with mode `600`:
-
-   ```bash
-   genigrep auth
-   # or non-interactively:
-   printf '%s' "$KEY" | genigrep auth
-   ```
-
-   Or skip storing it and set `GENIGREP_JEV_API_KEY` in the environment.
-3. Check the setup:
-
-   ```bash
-   genigrep doctor
-   ```
-
-4. Ask a question from inside a repository:
-
-   ```bash
-   genigrep "How is the retry delay computed?" -k retryDelay,backoff,RETRY_MAX,retry-after
-   ```
+The last line goes to stderr; everything else goes to stdout.
 
 ## Usage
 
@@ -125,125 +109,68 @@ to it.
 
 | Option | Meaning |
 | --- | --- |
-| `-k, --keyword <kw>` | A likely identifier, file-name fragment, config key, error string or synonym. Repeat it or separate with commas; 6-15 work best. Case and camelCase, snake_case and kebab-case variants are searched automatically. When omitted, keywords are derived from the question. |
+| `-k, --keyword <kw>` | A likely identifier, file-name fragment, config key, error string or synonym. Repeat it or separate with commas; 6-15 work best. camelCase, snake_case and kebab-case variants are searched automatically. |
 | `-s, --sub <question>` | One distinct part of a multi-part question (up to 3). For "is X required?", add one for what could skip or override X. |
-| `--in <path>` | Search this file or directory first, relative to the searched directory (up to 8). When fewer than 5 files match there, the whole directory is searched and the output says so. |
-| `-b, --budget <n>` | Max size of the evidence pack in tokens (default 12000). |
-| `--json` | One JSON object on stdout instead of text. |
+| `--in <path>` | Search this file or directory first (up to 8). If fewer than 5 files match there, the whole directory is searched and the output says so. |
+| `-b, --budget <n>` | Maximum size of the output in tokens (default 12000). |
+| `--json` | Print one JSON object instead of text. |
 | `-v, --verbose` | Also print keywords, stage timings and counts to stderr. |
-| `-q, --quiet` | Do not print the summary line on stderr. |
+| `-q, --quiet` | Do not print the cost and time line on stderr. |
 
-### Output
-
-stdout carries the evidence pack, in this order:
-
-1. A status line: the evidence rating (Jev's estimate that the returned passages answer the question,
-   per sub-question too), the number of passages and files, the pack size and the time.
-2. The passages, verbatim, each headed `== path:start-end  rel 0.96`, with `[s1]` when a passage
-   covers sub-question 1, `(definition of X)` for definitions followed from a lead, and
-   `in L210: ...` naming the enclosing declaration when a passage starts inside one.
-3. Leads: verified passages that did not fit, other candidate files, identifiers whose definitions were
-   not followed, and keywords with no hits.
-
-stderr carries one summary line with the Jev requests, input tokens and cost, for example
-`genigrep: 15 passages from 10 files, ~10.5k tokens | 2.3s | jev 17 requests, 91.3k input tokens, $0.0038`.
-
-`--json` prints `{ genigrep, engine, root, question, keywords, keywordsDerived, subQuestions, paths,
-status, passages, leads, stats, text }`. Each passage is `{ path, start, end, rel, coverage, kind,
-lines }` plus `definitionOf`, `trimmedFrom` and `enclosing` when they apply; `text` is the rendered pack.
-On failure, `--json` prints `{ "error": { "kind", "message" } }` instead.
-
-```bash
-genigrep "Which env vars configure the database?" --json | jq -r '.passages[] | "\(.path):\(.start)"'
-```
-
-### Exit codes
-
-| Code | Meaning |
+| Exit code | Meaning |
 | --- | --- |
-| 0 | The evidence pack has at least one passage (other commands: success). |
-| 1 | No passage passed verification (like grep finding nothing). |
+| 0 | At least one passage found. |
+| 1 | No passage passed verification. |
 | 2 | Invalid arguments. |
-| 3 | Setup problem: no API key, no ripgrep, unreadable config, missing directory. |
-| 4 | Jev failed: unreachable, timed out, key or billing rejected, request rejected. |
-| 5 | The search failed for another reason. |
+| 3 | Setup problem: no API key, no ripgrep, missing directory. |
+| 4 | Jev failed: unreachable, timed out, or key or billing rejected. |
+| 5 | Another failure. |
 | 130 | Interrupted. |
 
-genigrep does not fall back to keyword-only ranking when Jev fails: in the evaluation that lowered
-answer quality. Use `rg` directly in that case.
+The output format and the JSON fields are described in [docs/how-it-works.md](docs/how-it-works.md#output).
 
-## Using genigrep from a coding agent
+## Agent setup
 
-There are three ways to give an agent genigrep. They can be combined.
+There are three ways to give an agent genigrep, and they can be combined:
 
 - **Agent skill.** Teaches the agent when to run `genigrep`, when to use `rg` instead, and how to read
-  the results. Works with any agent that can run shell commands and reads Agent Skills.
-- **MCP server.** `genigrep mcp` gives the agent a `code_search` tool, for agents that speak the Model
-  Context Protocol.
+  the results. For agents that run shell commands and read Agent Skills.
+- **MCP server.** `genigrep mcp` gives the agent a `code_search` tool.
 - **Instructions snippet.** A paragraph for `AGENTS.md`, `CLAUDE.md` or a system prompt.
 
-All three are built from the wording OpenGeni shipped. An earlier wording made agents over-trust the
-search and answer worse; the shipped wording, which says the evidence rating cannot see what the search
-missed, fixed that. Keep that meaning if you adapt the text. The same caution is repeated in the first
-lines of every evidence pack.
+All three reuse the wording OpenGeni ships with the tool. An earlier wording made agents trust the
+search too much, and their answers got worse. One sentence fixed it: the evidence rating cannot see
+what the search missed. Keep that meaning if you adapt the text.
 
-Keywords matter. The evaluation used keywords chosen by the agent, which knows the question's
-vocabulary. Keywords derived from the question work for quick human use but usually find less, so the
-skill and the MCP tool ask the agent for keywords.
+Keywords matter. The evaluation used keywords chosen by the agent, so the skill and the MCP tool ask
+the agent for them.
 
 ### Agent skill
 
-[`skills/genigrep/SKILL.md`](skills/genigrep/SKILL.md) is an [Agent Skill](https://agentskills.io): when
-to use genigrep (questions that span unfamiliar code), when not to (a known symbol, file or string), how
-to call it, and how to use the results (read the passages first, do not re-read them, check what they
-do not cover, verify critical claims). Install it by copying the directory from a clone of this
-repository:
+[`skills/genigrep/SKILL.md`](skills/genigrep/SKILL.md) ships in the npm package. Copy it into your
+agent's skills directory:
 
-| Agent | All projects | One project |
-| --- | --- | --- |
-| Claude Code | `cp -r skills/genigrep ~/.claude/skills/` | `cp -r skills/genigrep <project>/.claude/skills/` |
-| Codex | `cp -r skills/genigrep ~/.agents/skills/` | `cp -r skills/genigrep <project>/.agents/skills/` |
-| Other agents | Copy `skills/genigrep` into the agent's skills directory. | |
+```bash
+SKILL="$(npm root -g)/genigrep/skills/genigrep"
+cp -r "$SKILL" ~/.claude/skills/     # Claude Code, all projects (or <project>/.claude/skills/)
+cp -r "$SKILL" ~/.agents/skills/     # Codex, all projects (or <project>/.agents/skills/)
+```
 
-Once this repository is public, `npx skills add Cloudgeni-ai/genigrep` installs the skill for the
-agents it detects.
+Or install it with the [skills](https://github.com/vercel-labs/skills) installer, which detects your
+agents:
 
-The skill runs the `genigrep` command, so install it and store a key first ([Quick start](#quick-start)).
+```bash
+npx skills add Cloudgeni-ai/genigrep
+```
+
+The skill runs the `genigrep` command, so install genigrep and store a key first.
 
 ### MCP server
 
-`genigrep mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server on stdin and
-stdout with one tool, `code_search`. Its inputs are OpenGeni's tool schema plus a directory:
-
-| Input | Meaning |
-| --- | --- |
-| `question` (required) | One precise question about the code. |
-| `keywords` (required) | 6-15 likely identifiers, file-name fragments, config keys, error strings and synonyms. |
-| `subQuestions` | Up to 3 distinct parts of the question. |
-| `paths` | Up to 8 files or directories to limit the search to, relative to the searched directory. |
-| `directory` | The directory to search, absolute or relative to the project root. Default: the project root. |
-
-The result is the evidence pack as text, ending with the directory its paths are relative to. Failures
-(no key, Jev down, invalid arguments) come back as tool errors that tell the agent to search with `rg`
-instead. The server also sends OpenGeni's code search instruction as MCP server instructions, which
-clients that support them add to the agent's context.
-
-Which directories the server searches:
-
-1. The directories given on its command line (`genigrep mcp ~/src/app ~/src/lib`), if any.
-2. Otherwise the workspace roots the client reports.
-3. Otherwise the directory the client started it in. If that is the home directory or the filesystem
-   root, a call must name its `directory`; genigrep does not guess.
-
-A call's `directory` must stay inside those directories, and a credentials directory such as `~/.aws`
-is never searched.
-
-The server reads the key stored by `genigrep auth` on every call, so no key goes into the client's
-configuration, and running `genigrep auth` later takes effect without a restart. If you use
-`GENIGREP_JEV_API_KEY` instead, make sure the client passes it to the server.
-
-The examples below run `genigrep` from your PATH (see [Install](#install)). Once genigrep is on npm,
-`npx -y genigrep mcp` works without a global install.
+`genigrep mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio with
+one read-only tool, `code_search`. It takes a question, keywords, optional sub-questions, optional
+paths and an optional directory. It reads the key stored by `genigrep auth` on every call, so no key
+goes into the client's configuration.
 
 **Claude Code**
 
@@ -251,7 +178,7 @@ The examples below run `genigrep` from your PATH (see [Install](#install)). Once
 claude mcp add --scope user genigrep -- genigrep mcp
 ```
 
-Or, for one project, in `.mcp.json` at the project root:
+Or, for one project, in `.mcp.json`:
 
 ```json
 {
@@ -273,13 +200,11 @@ Or in `~/.codex/config.toml`:
 [mcp_servers.genigrep]
 command = "genigrep"
 args = ["mcp"]
-# Only when the key comes from the environment instead of `genigrep auth`:
+# Only if the key comes from the environment instead of `genigrep auth`:
 # env_vars = ["GENIGREP_JEV_API_KEY"]
 ```
 
-**Cursor**
-
-In `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
+**Cursor**, in `~/.cursor/mcp.json` or `.cursor/mcp.json`:
 
 ```json
 {
@@ -289,14 +214,18 @@ In `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
 }
 ```
 
-Cursor reports the open workspace as MCP roots, and genigrep searches them. In a project's
-`.cursor/mcp.json` you can name the folder instead: `"args": ["mcp", "${workspaceFolder}"]`.
+Other clients: run `genigrep mcp` as a stdio server. `npx -y genigrep mcp` works without a global
+install.
 
-Other MCP clients: run `genigrep mcp` as a stdio server. `genigrep help mcp` lists its options.
+The server searches the directories given on its command line (`genigrep mcp ~/src/app`), otherwise
+the workspace roots the client reports, otherwise the directory it was started in. In that last case
+it will not search the home directory or the filesystem root. A tool call cannot leave these
+directories, and a credentials directory such as `~/.aws` is never searched. Details:
+[docs/how-it-works.md](docs/how-it-works.md#mcp-server).
 
 ### Instructions snippet
 
-For agents without skills or MCP, add something like this to your agent instructions:
+For agents without skills or MCP:
 
 ```markdown
 ## Code search
@@ -313,118 +242,124 @@ what they do not cover (other entry points, defaults, flags, exceptions) before 
 If genigrep exits with 3 or 4, search with rg instead.
 ```
 
-This is the tool description OpenGeni ships, adapted to the command line. Keep its last two sentences.
-
 ## How it works
 
-The engine is a five-stage pipeline (a port of the research prototype scout-0.3.1; ranking, thresholds
-and defaults unchanged):
+1. **Keyword pass.** One ripgrep pass finds every file that matches a keyword or one of its
+   camelCase, snake_case and kebab-case variants. Files are scored by how rare the matched keywords
+   are. Up to 240 of the best become candidates.
+2. **File triage.** Jev judges each candidate from its path and its three best matching lines.
+3. **Passage check.** genigrep cuts the chosen files into line-numbered passages around the matches,
+   aligned to the enclosing function or section, and Jev scores each passage for relevance and for
+   each sub-question.
+4. **Leads.** Identifiers used in the best passages are scored, and genigrep follows up to six of
+   their definitions, one level deep.
+5. **Pack.** The passages that pass are packed into the token budget, best first. One last Jev call
+   rates how well they answer the question.
 
-1. **Recall.** One ripgrep pass over every keyword's identifier variants (case-insensitive; camelCase,
-   snake_case, kebab-case and spaced forms), then IDF scoring per file. Up to 240 candidate files.
-2. **File triage.** Jev judges each candidate by its path and up to three matching lines. A lexical
-   guard always keeps the top lexical files, so a judge miss cannot drop them.
-3. **Passage verification.** The selected files are cut into line-numbered windows around their hits,
-   aligned to enclosing declarations. Jev scores each passage's relevance and its coverage of each
-   sub-question.
-4. **Leads.** Identifiers referenced by the best passages are scored once, and the definitions of the
-   chosen ones are located with ripgrep and verified the same way (exactly one round).
-5. **Pack.** Passages above the relevance threshold are packed within the token budget, grouped by
-   file, trimmed to whole lines when needed, and one final Jev check rates whether they answer the
-   question.
+Jev requests within a stage run in parallel, so a search takes a few seconds. The output is the
+passages verbatim, the leads that were not followed, and the evidence rating. Jev only scores; it
+never writes text. The agent reads the passages and does the reasoning.
 
-What genigrep never reads: files excluded by `.gitignore` (also outside a git repository), `.ignore`
-and `.rgignore`; binary files; dependency, build and cache directories (`node_modules`, `dist`,
-`build`, `target`, `vendor`, `.venv`, `__pycache__` and more); lock files, minified and generated files;
-and common secret files (`.env` and its local and per-environment variants, private keys, `*.tfvars`,
-`*.tfstate`, `.npmrc`, `.netrc`, credential JSON files, `.ssh/`, `.aws/` and others). Example env files
-such as `.env.example` stay searchable. The full lists are in `src/workspace/excludes.ts` and
-`src/engine/code-search/recall.ts`.
+More detail, including every limit and threshold: [docs/how-it-works.md](docs/how-it-works.md).
 
-## What is sent to Jev
+## Measured results
 
-genigrep does not upload your repository. Jev receives only the text it needs to judge:
+The engine was evaluated as OpenGeni's `code_search` tool, inside the OpenGeni agent harness. The
+command line tool, MCP server, skill and derived keywords in this repository were not part of the
+evaluation.
 
-- the question and sub-questions;
-- for file triage, the paths of up to 240 candidate files, each with up to 3 matching lines (160
-  characters each);
-- for verification, up to 80 passages, plus up to 6 definitions followed from leads, of up to 8,000
-  characters each (4,000 for prose), with their paths, line numbers and enclosing declaration (a small
-  file can fit in one passage);
-- for leads, up to 60 identifier names with the path, line and text where they were seen;
-- for the final check, up to 60,000 characters of the packed passages.
+Setup: 26 real questions about the OpenGeni codebase (TypeScript, about 6,300 files), answered by the
+agent with and without the tool, graded by two blind graders. The comparison is paired per question.
+Brackets are the study's paired confidence intervals.
 
-Keywords, file listings beyond the candidates and anything the ignore rules exclude are never sent.
-genigrep does not scan contents for secrets: a credential hard-coded in an ordinary source file can be
-sent as part of a passage. See [SECURITY.md](SECURITY.md).
+| Run | Agent model | Cost | Time | Other |
+| --- | --- | --- | --- | --- |
+| 1 | `gpt-6-astra` | -6.6% [-11.5, -1.9] | -9.1% [-13.4, -4.6] | |
+| 2 | `gpt-6-sol`, xhigh reasoning | -7.5% [-14.2, +0.4] | -9.8% [-17.9, +0.6] | Model calls per question 19.4 to 16.2. Pass rate +1.9 points [-4.8, +8.7]. |
 
-Requests go to `https://api.typesafe.ai` (`GENIGREP_JEV_BASE_URL` changes it; HTTPS is required except
-for `localhost`). The key travels only in the `Authorization` header.
+Answer quality was equal with and without the tool. Run 2's intervals include zero: it agrees with
+run 1 but does not confirm it on its own.
 
-## Cost and speed
+Other results:
 
-Jev costs $0.042 per million input tokens (output is free). In the evaluation below a search cost about
-$0.006 on average. Jev requests run in parallel, so the wall time is a few round trips.
+- **Without Jev.** The same pipeline with keyword-only ranking lost 7.7 points of answer quality. That
+  is why genigrep fails instead of falling back to keyword ranking when Jev is unavailable.
+- **Bug fixing.** On Terminal-Bench 2.1 and SWE-rebench (12 tasks each, one trial) there was no
+  measurable effect.
+- **Jev cost** was about $0.006 per call.
 
-Examples on the OpenGeni repository (about 6,300 files), run from a laptop. Each made 13-21 Jev
-requests totalling 72k-121k input tokens and took 2.1-2.4 seconds:
+Limits: one repository in one language, 26 questions, one agent harness, and a small bug-fixing
+sample. Other codebases, languages and agents may behave differently.
 
-| Question | Keywords | Passages | Time | Jev requests | Cost |
-| --- | --- | --- | --- | --- | --- |
-| Where is the Codex usage limit error classified? | derived from the question | 12 from 9 files | 2.4 s | 19 | $0.0051 |
-| Where is the Codex usage limit error classified? | 8 given with `-k` | 15 from 10 files | 2.3 s | 17 | $0.0038 |
-| How does the Jev client decide which HTTP failures to retry, and how long does it wait between attempts? (plus one `-s`) | 8 given | 13 from 7 files | 2.1 s | 13 | $0.0030 |
-| Which conditions decide whether a turn is offered the code_search tool? | 7 given | 16 from 12 files | 2.3 s | 21 | $0.0041 |
-
-## Evidence
-
-genigrep's engine was evaluated as OpenGeni's `code_search` tool, inside the OpenGeni agent harness,
-not as this command line tool. The setup: 26 real questions about the OpenGeni codebase, answered by an
-agent with and without the tool, graded by two blind graders, compared with paired statistics.
-Brackets are the paired intervals the study reported.
-
-| Run | Cost | Time | Other |
-| --- | --- | --- | --- |
-| Run 1, `gpt-6-astra` | -6.6% [-11.5, -1.9] | -9.1% [-13.4, -4.6] | |
-| Run 2, `gpt-6-sol` (xhigh reasoning) | -7.5% [-14.2, +0.4] | -9.8% [-17.9, +0.6] | model calls 19.4 to 16.2 per question; pass rate +1.9 points [-4.8, +8.7] |
-
-In short: about 7% lower cost and about 10% less time at equal answer quality. Run 2's intervals include
-zero, so read its savings as consistent with run 1 rather than as an independent confirmation.
-
-Two more results shaped the design:
-
-- A keyword-only variant, the same pipeline without Jev, lost 7.7 points of answer quality. That is why
-  genigrep fails instead of silently degrading when Jev is down.
-- On bug-fixing benchmarks (Terminal-Bench 2.1 and SWE-rebench, 12 tasks, 1 trial each) there was no
-  measurable effect either way. That sample is small.
-
-Limits of this evidence: one codebase (TypeScript, about 6,300 files), 26 questions, one agent
-harness, and agents that also had ordinary shell search available. Keywords derived by genigrep itself,
-the agent skill and the MCP server were not evaluated. Other repositories, languages and agents may
-differ.
+> **Methodology:** TODO: link to the methodology write-up.
 
 ### TODO: head-to-head against jevgrep
 
-> **TODO.** A head-to-head comparison against jevgrep is running separately. Results will be added
-> here when they are available. No numbers have been measured for this section yet.
+> **TODO.** A head-to-head comparison against jevgrep is running. Results go here when they are in.
+> No numbers have been measured for this section yet.
+
+## Cost and privacy
+
+**Cost.** Jev costs $0.042 per million input tokens; output tokens are free. In the evaluation a
+search cost about $0.006. Four example searches on the OpenGeni repository made 13-21 Jev requests
+with 72k-121k input tokens, cost $0.003-0.005 each and took 2.1-2.4 seconds from a laptop. The stderr
+line of every search shows its exact cost.
+
+**What is sent to Jev.** genigrep does not upload your repository. Jev receives only what it needs to
+judge:
+
+- the question and sub-questions;
+- the paths of up to 240 candidate files, each with up to 3 matching lines;
+- up to 80 passages being checked, plus up to 6 followed definitions, each at most 8,000 characters;
+- up to 60 identifier names with the line they appear on;
+- up to 60,000 characters of the final packed passages, for the rating.
+
+Requests go to `https://api.typesafe.ai` over HTTPS, and the key is sent only in the `Authorization`
+header. Exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-sent-to-jev).
+
+**What is never read.** Files excluded by `.gitignore` (also outside a git repository), `.ignore` and
+`.rgignore`; binary files; dependency, build and cache directories (`node_modules`, `dist`, `target`,
+`vendor`, `.venv` and more); lock files and minified or generated files; and common secret files
+(`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON
+files, `.ssh/`, `.aws/` and others). A secret file is skipped even when you name it. `.env.example`
+stays searchable.
+
+genigrep does not scan file contents for secrets. A credential hard-coded in an ordinary source file
+can be sent as part of a passage. See [SECURITY.md](SECURITY.md).
 
 ## Configuration
 
-| Setting | Where | Default |
-| --- | --- | --- |
-| API key | `GENIGREP_JEV_API_KEY`, else the config file (`genigrep auth`) | none |
-| Jev endpoint | `GENIGREP_JEV_BASE_URL` or `jevBaseUrl` in the config file | `https://api.typesafe.ai` |
-| Jev model | `GENIGREP_JEV_MODEL` or `jevModel` in the config file | `jev-latest` |
-| Jev request timeout | `GENIGREP_JEV_TIMEOUT_MS` (1000-120000) | `10000` |
-| ripgrep binary | `GENIGREP_RG_PATH` | bundled `@vscode/ripgrep`, then `rg` on PATH |
+| Setting | Environment variable | Config file key | Default |
+| --- | --- | --- | --- |
+| API key | `GENIGREP_JEV_API_KEY` | set by `genigrep auth` | none |
+| Jev endpoint | `GENIGREP_JEV_BASE_URL` | `jevBaseUrl` | `https://api.typesafe.ai` |
+| Jev model | `GENIGREP_JEV_MODEL` | `jevModel` | `jev-latest` |
+| Jev request timeout (ms) | `GENIGREP_JEV_TIMEOUT_MS` | | `10000` |
+| ripgrep binary | `GENIGREP_RG_PATH` | | bundled, then `rg` on PATH |
 
-The config file is `$XDG_CONFIG_HOME/genigrep/config.json` (default `~/.config/genigrep/config.json`;
-`%APPDATA%\genigrep\config.json` on Windows), created with mode `600` in a `700` directory. genigrep
-warns when the file is readable by other users. The key is never printed: `genigrep auth --status` and
-`genigrep doctor` say where it comes from, not what it is.
+Environment variables override the config file. The config file is
+`$XDG_CONFIG_HOME/genigrep/config.json` (default `~/.config/genigrep/config.json`,
+`%APPDATA%\genigrep\config.json` on Windows), created with mode `600` in a `700` directory. The key is
+never printed or logged; `genigrep auth --status` shows where it comes from, not what it is. The
+endpoint must use HTTPS, except for `localhost`.
 
-To exclude more paths, list them in a `.ignore` or `.rgignore` file (gitignore syntax) in the searched
-directory.
+To exclude more paths, list them in a `.ignore` or `.rgignore` file (gitignore syntax).
+
+## Limitations
+
+- **Investigation, not bug fixing.** The gains were measured on questions about how code works. On
+  bug-fixing tasks there was no measurable gain.
+- **A Jev key is required.** There is no offline or keyword-only mode. If Jev is unavailable, genigrep
+  exits with code 4 (the MCP tool returns an error) and the agent should use `rg`.
+- **Languages.** Tuned and evaluated on one TypeScript repository. Passages are aligned to
+  declarations in TypeScript and JavaScript, Rust, Go, Python, Markdown, SQL and YAML; other languages
+  get a fixed amount of context around each match. Search quality on other languages has not been
+  measured.
+- **Not exhaustive.** genigrep returns the best passages, not every occurrence. Use `rg` for renames
+  and for counting call sites.
+- **Keywords.** Keywords derived from the question are a convenience for people and were not
+  evaluated. Keywords chosen by the agent work better.
+- **Windows** is not tested yet.
 
 ## Library
 
@@ -437,30 +372,28 @@ const result = await genigrep({
   root: "/path/to/repo",
   apiKey: process.env.GENIGREP_JEV_API_KEY!,
 });
-console.log(result.text); // the rendered pack
+console.log(result.text); // the rendered output
 for (const p of result.passages) console.log(p.path, p.start, p.end, p.rel);
 ```
 
-For hosts that wire code search into their own agent tools, the package also exports the engine
-(`runCodeSearch`, `JevClient`, `JevCircuitBreaker`), the tool surface (`CODE_SEARCH_TOOL_DESCRIPTION`,
-`CODE_SEARCH_DIRECTIVE`, `codeSearchInputSchema`, `parseCodeSearchArguments`, `renderCodeSearchError`), the `LocalWorkspace`
-adapter and the `CodeSearchWorkspace` interface for other workspaces (OpenGeni implements it over its
-sandboxes).
+The package also exports the engine (`runCodeSearch`, `JevClient`, `JevCircuitBreaker`), the tool
+definition and wording (`CODE_SEARCH_TOOL_DESCRIPTION`, `CODE_SEARCH_DIRECTIVE`,
+`codeSearchInputSchema`), the `LocalWorkspace` adapter, and the `CodeSearchWorkspace` interface for
+searching somewhere other than the local disk.
 
-## Development
+## Contributing
 
-```bash
-bun install
-bun run typecheck
-bun run build
-bun test          # never calls the real Jev API; the dist and MCP stdio tests run dist/cli.js under Node
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as described in
+[SECURITY.md](SECURITY.md).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before changing the engine's ranking or wording.
+## Origin
 
-## Origin and license
+genigrep was extracted from [OpenGeni](https://github.com/Cloudgeni-ai/opengeni), where the same
+engine runs as the `code_search` agent tool. The engine in `src/engine` is a port of OpenGeni's
+`packages/jev`, with ranking, thresholds and Jev prompts unchanged. [NOTICE](NOTICE) names the exact
+source commit.
 
-genigrep is licensed under the [Apache License 2.0](LICENSE). The engine in `src/engine` was ported
-from OpenGeni's `packages/jev` (Apache-2.0); see [NOTICE](NOTICE) for attribution and the exact source
-commit. ripgrep is by Andrew Gallant and contributors (MIT or Unlicense); `@vscode/ripgrep` is by
-Microsoft (MIT).
+## License
+
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution. ripgrep is by Andrew Gallant and
+contributors (MIT or Unlicense); `@vscode/ripgrep` is by Microsoft (MIT).

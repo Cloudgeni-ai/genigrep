@@ -15,8 +15,8 @@ rather than in a public issue. Include what you found, how to reproduce it and t
   The endpoint must use HTTPS; plain HTTP is accepted only for `localhost`.
 - **What leaves your machine.** Only the text Jev needs for judging is sent: the question and
   sub-questions, candidate file paths with up to three matching lines each, the passages being verified,
-  identifiers found in them, and the final evidence. Whole files and file listings are not sent. See
-  "What is sent to Jev" in the README.
+  identifiers found in them, and the final evidence. Whole files and file listings are not sent. The
+  exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-sent-to-jev).
 - **What is never read.** Files excluded by `.gitignore`, `.ignore` and `.rgignore`, binary files,
   dependency and build directories, and common secret files (`.env`, `.env.local`, private keys,
   `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON files, `.ssh/`, `.aws/` and others; see
