@@ -1,0 +1,16 @@
+genigrep
+Copyright 2026 Cloudgeni-ai
+
+This product includes software developed as part of OpenGeni
+(https://github.com/Cloudgeni-ai/opengeni), Copyright 2026 Cloudgeni-ai,
+licensed under the Apache License, Version 2.0.
+
+The code search engine in src/engine (the TypeSafe Jev client, the circuit
+breaker and the code_search pipeline) and its tests in test/engine were ported
+from OpenGeni's packages/jev at commit
+fe7ea0a6cf3f094cd00bbf066a2107fef049fe19. Changes made after the port are
+recorded in this repository's git history and CHANGELOG.md.
+
+genigrep runs ripgrep (https://github.com/BurntSushi/ripgrep, MIT or Unlicense)
+through the @vscode/ripgrep npm package (MIT) or a ripgrep binary already
+installed on the system. ripgrep is not bundled in this source repository.
