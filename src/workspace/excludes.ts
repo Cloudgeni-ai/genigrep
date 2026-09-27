@@ -110,3 +110,12 @@ export function isSecretPath(relPath: string): boolean {
   if (SECRET_NAMES.has(name)) return true;
   return SECRET_NAME_PATTERNS.some((re) => re.test(name));
 }
+
+/**
+ * True for a directory that is, or lies inside, a credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`).
+ * The exclude globs match paths relative to the searched directory, so a search rooted inside one of these
+ * would not see the directory name; LocalWorkspace refuses such a root instead.
+ */
+export function isSecretDirectory(path: string): boolean {
+  return path.split(/[\\/]+/).some((part) => SECRET_DIRS.has(part));
+}

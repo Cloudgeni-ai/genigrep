@@ -17,6 +17,7 @@ export {
   DEFAULT_EXCLUDE_GLOBS,
   DEPENDENCY_EXCLUDE_GLOBS,
   SECRET_EXCLUDE_GLOBS,
+  isSecretDirectory,
   isSecretPath,
 } from "./workspace/excludes";
 export { findRipgrep, type RipgrepBinary, type RipgrepSource } from "./ripgrep";

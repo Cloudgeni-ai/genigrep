@@ -14,7 +14,7 @@ import {
   type CodeSearchWorkspace,
 } from "../engine";
 import { findRipgrep } from "../ripgrep";
-import { DEFAULT_EXCLUDE_GLOBS, isSecretPath } from "./excludes";
+import { DEFAULT_EXCLUDE_GLOBS, isSecretDirectory, isSecretPath } from "./excludes";
 
 /** ripgrep stdout kept per call; more is cut at a line boundary and reported as truncated. */
 export const LOCAL_RIPGREP_MAX_STDOUT_BYTES = 32 * 1024 * 1024;
@@ -129,6 +129,9 @@ export class LocalWorkspace implements CodeSearchWorkspace {
       if (!statSync(real).isDirectory()) throw new Error("not a directory");
     } catch {
       throw new CodeSearchWorkspaceError(`not a directory: ${root}`);
+    }
+    if (isSecretDirectory(real)) {
+      throw new CodeSearchWorkspaceError(`refusing to search a credentials directory: ${root}`);
     }
     this.root = real;
     this.rgPath = options.rgPath ?? findRipgrep()?.path ?? null;

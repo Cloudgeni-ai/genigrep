@@ -8,6 +8,7 @@ import { findRipgrep } from "../src/ripgrep";
 import {
   DEFAULT_EXCLUDE_GLOBS,
   SECRET_EXCLUDE_GLOBS,
+  isSecretDirectory,
   isSecretPath,
 } from "../src/workspace/excludes";
 import {
@@ -322,6 +323,15 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(() => new LocalWorkspace(join(tmpdir(), "genigrep-does-not-exist-" + Date.now()))).toThrow(
       CodeSearchWorkspaceError,
     );
+  });
+
+  test("refuses a root inside a credentials directory", () => {
+    const home = tree({ ".aws/credentials": "aws_secret_access_key = x\n", ".ssh/keys/id_rsa": "x\n", "src/a.ts": "x\n" });
+    expect(() => new LocalWorkspace(join(home, ".aws"))).toThrow(/credentials directory/);
+    expect(() => new LocalWorkspace(join(home, ".ssh", "keys"))).toThrow(/credentials directory/);
+    expect(new LocalWorkspace(join(home, "src")).root).toContain("genigrep-ws-");
+    expect(isSecretDirectory("/home/u/.kube")).toBe(true);
+    expect(isSecretDirectory("/home/u/projects/kube")).toBe(false);
   });
 
   test("the default globs include the secret globs", () => {
