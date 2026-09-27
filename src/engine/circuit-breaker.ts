@@ -11,7 +11,7 @@
  *   lease is the trial, so a call admitted while closed cannot free the slot of a trial running now.
  * isOpen() and status() are for metrics and diagnostics. Do not use them to decide which tools a turn is
  * offered: that list is part of the model's cached prompt prefix and must not change with transient health.
- * The worker keeps one breaker per process.
+ * A long-lived host (an agent worker, an MCP server) keeps one breaker per process.
  */
 import { JevUnavailableError } from "./client";
 
@@ -60,9 +60,9 @@ export class JevCircuitBreaker {
     this.failureThreshold = Math.max(1, options.failureThreshold ?? 3);
     this.cooldownMs = options.cooldownMs ?? 5 * 60_000;
     this.authCooldownMs = options.authCooldownMs ?? 30 * 60_000;
-    // Longer than one Jev retry cycle at the largest allowed request timeout (3 attempts of up to
-    // 120 s, OPENGENI_JEV_REQUEST_TIMEOUT_MS) plus backoff and sandbox recall, so a slow trial is not
-    // mistaken for a stuck one and joined by a second trial.
+    // Longer than one Jev retry cycle at the largest supported request timeout (3 attempts of up to
+    // 120 s) plus backoff and workspace recall, so a slow trial is not mistaken for a stuck one and
+    // joined by a second trial.
     this.trialTimeoutMs = options.trialTimeoutMs ?? 10 * 60_000;
   }
 

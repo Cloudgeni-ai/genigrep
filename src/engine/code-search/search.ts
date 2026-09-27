@@ -78,6 +78,8 @@ export interface CodeSearchInput {
   config?: CodeSearchConfig | undefined;
   /** In-memory stage trace (recall, wave1, wave2, leads, pack, summary, and one "jev" event per Jev request). */
   onStage?: ((stage: string, data: Record<string, unknown>) => void) | undefined;
+  /** Name that starts the status header line (default "code_search"). */
+  headerName?: string | undefined;
 }
 
 export interface CodeSearchStatus {
@@ -103,12 +105,50 @@ export interface CodeSearchStats {
   jev: { requests: number; inputTokens: number; costUsd: number; model: string | null };
 }
 
+/** One passage of the pack, as rendered in `text`. */
+export interface CodeSearchPassage {
+  path: string;
+  /** First and last line shown (1-based, inclusive). */
+  start: number;
+  end: number;
+  /** Jev relevance in [0, 1]. */
+  rel: number;
+  /** Jev coverage of each sub-question in [0, 1], in sub-question order. */
+  coverage: number[];
+  /** "hit" (keyword window), "header" (file head) or "def" (definition followed from a lead). */
+  kind: "hit" | "header" | "def";
+  /** The identifier whose definition this is (kind "def"). */
+  definitionOf?: string;
+  /** The verified range before the pack trimmed it to fit. */
+  trimmedFrom?: { start: number; end: number };
+  /** The enclosing declaration when the passage starts inside one. */
+  enclosing?: { line: number; text: string };
+  /** The verbatim `N| text` lines. */
+  lines: string;
+}
+
+/** What the pack left out, as listed in the footer of `text`. */
+export interface CodeSearchLeads {
+  /** Verified passages that did not fit the budget, best first. */
+  morePassages: Array<{ path: string; start: number; end: number; rel: number }>;
+  /** Candidate files that were not windowed, with their triage score. */
+  moreFiles: Array<{ path: string; score: number }>;
+  /** Identifiers referenced by the evidence whose definitions were not read. */
+  leadsNotFollowed: Array<{ name: string; score: number; seenAt: string }>;
+  /** Keywords that matched nothing (or only through their fragments). */
+  zeroHitKeywords: Array<{ keyword: string; fragments: string[] }>;
+}
+
 export interface CodeSearchResult {
   version: string;
   /** The rendered pack: a status header line, verbatim line-numbered passages, then the footer. */
   text: string;
   status: CodeSearchStatus;
   stats: CodeSearchStats;
+  /** The passages of `text`, in the same order. */
+  passages: CodeSearchPassage[];
+  /** The footer of `text` as data. */
+  leads: CodeSearchLeads;
   /** The error of a failed final status check, for a circuit breaker (the search itself succeeded). */
   statusCheckError?: JevUnavailableError | JevRequestError;
 }
@@ -737,7 +777,7 @@ async function pipeline(o: CodeSearchInput, signal: AbortSignal): Promise<CodeSe
           : "");
   const buildText = (packTok: number) => {
     const head = [
-      `code_search${label ? " " + label : ""}: ${statusText} | ${body.included.length} passages from ${includedFiles.size} files, ~${fmtK(packTok)} tokens | ${(wallMs / 1000).toFixed(1)}s`,
+      `${o.headerName ?? "code_search"}${label ? " " + label : ""}: ${statusText} | ${body.included.length} passages from ${includedFiles.size} files, ~${fmtK(packTok)} tokens | ${(wallMs / 1000).toFixed(1)}s`,
     ];
     if (subQuestions.length) head.push(subQuestions.map((s, j) => `s${j + 1}: ${s}`).join("\n"));
     head.push(
@@ -763,7 +803,44 @@ async function pipeline(o: CodeSearchInput, signal: AbortSignal): Promise<CodeSe
     jev: { ...jevTotals, model: judge.model() },
   };
   emit("summary", { wallMs, stageMs, stats, status, jevByStage: judge.stats() });
-  const result: CodeSearchResult = { version: CODE_SEARCH_ENGINE_VERSION, text, status, stats };
+  const passages: CodeSearchPassage[] = body.included.map((p) => {
+    const at = p.block.indexOf(`\n${p.start}| `);
+    const passage: CodeSearchPassage = {
+      path: p.path,
+      start: p.start,
+      end: p.end,
+      rel: round(p.rel),
+      coverage: p.cov.map(round),
+      kind: p.kind,
+      lines: at >= 0 ? p.block.slice(at + 1) : "",
+    };
+    if (p.kind === "def" && p.lead) passage.definitionOf = p.lead;
+    if (p.trimmed) passage.trimmedFrom = { start: p.origStart, end: p.origEnd };
+    if (p.label && p.label.line < p.start) passage.enclosing = { ...p.label };
+    return passage;
+  });
+  const moreLimit = cfg.pack.moreCandidates;
+  const morePassages = body.excluded
+    .slice(0, moreLimit)
+    .map((x) => ({ path: x.path, start: x.start, end: x.end, rel: round(x.rel) }));
+  const leads: CodeSearchLeads = {
+    morePassages,
+    moreFiles: otherFiles
+      .slice(0, Math.max(0, moreLimit - morePassages.length))
+      .map((x) => ({ path: x.path, score: round(x.score) })),
+    leadsNotFollowed: notFollowed
+      .slice(0, cfg.pack.leadsNotFollowed)
+      .map((l) => ({ name: l.name, score: round(l.score), seenAt: l.seenAt })),
+    zeroHitKeywords: zeroHitKeywords.map((k) => ({ keyword: k.raw, fragments: k.fragments })),
+  };
+  const result: CodeSearchResult = {
+    version: CODE_SEARCH_ENGINE_VERSION,
+    text,
+    status,
+    stats,
+    passages,
+    leads,
+  };
   if (statusCheckError) result.statusCheckError = statusCheckError;
   return result;
 }

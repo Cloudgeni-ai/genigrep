@@ -1,6 +1,6 @@
 /**
  * tool.ts - the model-facing surface of code_search: name, description, input schema, argument
- * parsing and short error texts. The worker wires these to runCodeSearch.
+ * parsing and short error texts. A host (an agent harness, an MCP server) wires these to runCodeSearch.
  */
 import { JevRequestError, JevUnavailableError } from "../client";
 import { CodeSearchRipgrepMissingError, CodeSearchWorkspaceError } from "./workspace";
@@ -172,7 +172,8 @@ function normalizePath(raw: string): string {
   return p;
 }
 
-const FALLBACK = "Search with exec_command (rg, sed) instead.";
+/** What a failed call suggests instead. */
+const FALLBACK = "Search with rg, grep or file reads instead.";
 
 /** Short model-facing text for a failed code_search call. */
 export function renderCodeSearchError(error: unknown): string {
@@ -185,7 +186,7 @@ export function renderCodeSearchError(error: unknown): string {
   if (error instanceof JevRequestError)
     return `code_search failed: the relevance model rejected the request (${detail(error)}). ${FALLBACK}`;
   if (isRipgrepMissing(error)) {
-    return "code_search cannot run here: ripgrep (rg) is not installed in this workspace. Search with exec_command (grep, find, sed) instead.";
+    return "code_search cannot run here: ripgrep (rg) is not installed in this workspace. Search with grep, find or file reads instead.";
   }
   if (error instanceof CodeSearchWorkspaceError)
     return `code_search could not search this workspace (${detail(error)}). ${FALLBACK}`;

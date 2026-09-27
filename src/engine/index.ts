@@ -41,6 +41,8 @@ export {
   CODE_SEARCH_ENGINE_VERSION,
   runCodeSearch,
   type CodeSearchInput,
+  type CodeSearchLeads,
+  type CodeSearchPassage,
   type CodeSearchResult,
   type CodeSearchStats,
   type CodeSearchStatus,

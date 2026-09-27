@@ -113,12 +113,12 @@ describe("parseCodeSearchArguments", () => {
 });
 
 describe("renderCodeSearchError", () => {
-  test("Jev unavailable points to exec_command", () => {
+  test("Jev unavailable points to other search tools", () => {
     const t = renderCodeSearchError(
       new JevUnavailableError("Jev unavailable after 3 attempts (HTTP 503)"),
     );
     expect(t).toBe(
-      "code_search is unavailable right now (Jev unavailable after 3 attempts (HTTP 503)). Search with exec_command (rg, sed) instead.",
+      "code_search is unavailable right now (Jev unavailable after 3 attempts (HTTP 503)). Search with rg, grep or file reads instead.",
     );
   });
   test("missing ripgrep", () => {
@@ -139,9 +139,9 @@ describe("renderCodeSearchError", () => {
       renderCodeSearchError(
         new JevRequestError("Jev rejected the request (HTTP 400: max_tokens_exceeded)"),
       ),
-    ).toMatch(/^code_search failed: .*max_tokens_exceeded.*exec_command/);
-    expect(renderCodeSearchError(new CodeSearchWorkspaceError("sandbox offline"))).toBe(
-      "code_search could not search this workspace (sandbox offline). Search with exec_command (rg, sed) instead.",
+    ).toMatch(/^code_search failed: .*max_tokens_exceeded.*rg, grep/);
+    expect(renderCodeSearchError(new CodeSearchWorkspaceError("disk offline"))).toBe(
+      "code_search could not search this workspace (disk offline). Search with rg, grep or file reads instead.",
     );
     expect(
       renderCodeSearchError(new CodeSearchArgumentError("keywords must be an array of strings")),

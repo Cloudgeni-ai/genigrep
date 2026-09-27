@@ -1,0 +1,67 @@
+{
+  "name": "genigrep",
+  "version": "0.1.0",
+  "description": "Ask a question about a codebase, get back only the source that answers it. Jev-ranked code search for coding agents.",
+  "license": "Apache-2.0",
+  "author": "Cloudgeni",
+  "homepage": "https://github.com/Cloudgeni-ai/genigrep#readme",
+  "bugs": {
+    "url": "https://github.com/Cloudgeni-ai/genigrep/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cloudgeni-ai/genigrep.git"
+  },
+  "keywords": [
+    "code-search",
+    "ripgrep",
+    "coding-agent",
+    "cli",
+    "retrieval",
+    "jev"
+  ],
+  "type": "module",
+  "bin": {
+    "genigrep": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun test && bun run build",
+    "prepublishOnly": "bun run check"
+  },
+  "dependencies": {
+    "@vscode/ripgrep": "^1.18.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/node": "^20.19.43",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

@@ -1,5 +1,6 @@
 /**
- * The only way the code_search engine touches files and processes. The sandbox side implements it.
+ * The only way the code_search engine touches files and processes. An adapter implements it: genigrep
+ * ships LocalWorkspace (local ripgrep and node:fs); OpenGeni runs the same calls inside its sandboxes.
  *
  * The engine passes ripgrep only these flags, so an adapter may enforce an allowlist:
  * --files, --null, --line-number, --with-filename, --no-heading, --color never, -i, -w, --no-require-git,
@@ -10,8 +11,8 @@
  */
 
 /**
- * Longest `-e` pattern the engine passes to ripgrep, so an adapter may cap pattern length (the sandbox
- * adapter rejects patterns over 16,384 characters).
+ * Longest `-e` pattern the engine passes to ripgrep, so an adapter may cap pattern length (the local
+ * and sandbox adapters reject patterns over 16,384 characters).
  */
 export const CODE_SEARCH_MAX_PATTERN_CHARS = 16_000;
 
