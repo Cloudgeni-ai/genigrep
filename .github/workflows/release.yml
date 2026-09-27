@@ -1,0 +1,80 @@
+name: Release
+
+# Publishes the package to npm. Disabled while the repository is private: it runs only by hand, and the
+# guard job refuses unless the repository is public and the repository variable
+# GENIGREP_RELEASE_ENABLED is "true". To publish on tags once public, add:
+#
+#   push:
+#     tags: ["v*"]
+#
+# See CONTRIBUTING.md (Releasing).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, for example v0.1.0 (must match package.json)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse unless publishing is enabled
+        env:
+          PRIVATE: ${{ github.event.repository.private }}
+          ENABLED: ${{ vars.GENIGREP_RELEASE_ENABLED }}
+        run: |
+          if [ "$PRIVATE" != "false" ]; then
+            echo "::error::The repository is private; npm publishing is disabled until it is public."
+            exit 1
+          fi
+          if [ "$ENABLED" != "true" ]; then
+            echo "::error::Set the repository variable GENIGREP_RELEASE_ENABLED=true to publish."
+            exit 1
+          fi
+
+  publish:
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+
+      - name: Tag matches package.json
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Check
+        run: bun run check
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
