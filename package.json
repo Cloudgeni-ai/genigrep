@@ -1,5 +1,5 @@
 {
-  "name": "genigrep",
+  "name": "@opengeni/genigrep",
   "version": "0.1.0",
   "description": "Ask a question about a codebase, get back only the source that answers it. Jev-ranked code search for coding agents.",
   "license": "Apache-2.0",

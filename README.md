@@ -30,7 +30,7 @@ tasks. See [Measured results](#measured-results).
 Requires Node.js 20 or newer, or Bun. Tested on Linux and macOS.
 
 ```bash
-npm install -g genigrep
+npm install -g @opengeni/genigrep
 ```
 
 ripgrep comes with it through the [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep)
@@ -214,7 +214,7 @@ args = ["mcp"]
 }
 ```
 
-Other clients: run `genigrep mcp` as a stdio server. `npx -y genigrep mcp` works without a global
+Other clients: run `genigrep mcp` as a stdio server. `npx -y @opengeni/genigrep mcp` works without a global
 install.
 
 The server searches the directories given on its command line (`genigrep mcp ~/src/app`), otherwise
@@ -270,7 +270,7 @@ evaluation.
 
 Setup: 26 real questions about the OpenGeni codebase (a TypeScript monorepo), answered by the
 agent with and without the tool, graded by two blind graders. The comparison is paired per question.
-Brackets are the study's paired confidence intervals.
+Brackets are 95% paired bootstrap confidence intervals over the questions.
 
 | Run | Agent model | Cost | Time | Other |
 | --- | --- | --- | --- | --- |
@@ -291,12 +291,8 @@ Other results:
 Limits: one repository in one language, 26 questions, one agent harness, and a small bug-fixing
 sample. Other codebases, languages and agents may behave differently.
 
-> **Methodology:** TODO: link to the methodology write-up.
+> **Methodology:** the evaluation is described in OpenGeni's [code search documentation](https://github.com/Cloudgeni-ai/opengeni/blob/main/docs/code-search.md).
 
-### TODO: head-to-head against jevgrep
-
-> **TODO.** A head-to-head comparison against jevgrep is running. Results go here when they are in.
-> No numbers have been measured for this section yet.
 
 ## Cost and privacy
 
@@ -365,7 +361,7 @@ To exclude more paths, list them in a `.ignore` or `.rgignore` file (gitignore s
 ## Library
 
 ```ts
-import { genigrep } from "genigrep";
+import { genigrep } from "@opengeni/genigrep";
 
 const result = await genigrep({
   question: "How is the retry delay computed?",
