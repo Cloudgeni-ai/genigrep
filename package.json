@@ -51,14 +51,14 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "check": "bun run typecheck && bun test && bun run build",
+    "check": "bun run typecheck && bun run build && bun test",
     "prepublishOnly": "bun run check"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.1",
     "@vscode/ripgrep": "^1.18.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
     "@types/bun": "^1.4.2",
     "@types/node": "^20.19.43",
     "tsup": "^8.5.1",

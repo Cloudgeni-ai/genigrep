@@ -11,16 +11,6 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, parse, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-  CallToolRequestSchema,
-  ErrorCode,
-  ListToolsRequestSchema,
-  McpError,
-  RootsListChangedNotificationSchema,
-  type CallToolResult,
-  type Tool,
-} from "@modelcontextprotocol/sdk/types.js";
 import { ConfigError, ENV_API_KEY, loadSettings } from "../config";
 import {
   CODE_SEARCH_DIRECTIVE,
@@ -39,6 +29,22 @@ import {
 import { genigrep } from "../genigrep";
 import { findRipgrep } from "../ripgrep";
 import { VERSION } from "../version";
+import { McpError, McpErrorCode, McpServer } from "./protocol";
+
+/** An MCP tool definition as listed by tools/list. */
+export interface McpTool {
+  name: string;
+  title?: string;
+  description: string;
+  inputSchema: { type: "object"; [key: string]: unknown };
+  annotations?: Record<string, unknown>;
+}
+
+/** The result of one tools/call. */
+export interface CallToolResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError: boolean;
+}
 
 /**
  * OpenGeni's shipped tool description, adapted to a standalone server: "the working directory" becomes the
@@ -61,7 +67,7 @@ const DIRECTORY_MAX_CHARS = 1000;
 const baseProperties = codeSearchInputSchema.properties as { [key: string]: CodeSearchJsonValue };
 
 /** The engine's input schema (question, keywords, subQuestions, paths) plus `directory`. */
-export const mcpToolInputSchema: Tool["inputSchema"] = {
+export const mcpToolInputSchema: McpTool["inputSchema"] = {
   ...codeSearchInputSchema,
   type: "object",
   properties: {
@@ -82,7 +88,7 @@ export const mcpToolInputSchema: Tool["inputSchema"] = {
   },
 };
 
-export const MCP_TOOL: Tool = {
+export const MCP_TOOL: McpTool = {
   name: CODE_SEARCH_TOOL_NAME,
   title: "Search code",
   description: MCP_TOOL_DESCRIPTION,
@@ -170,6 +176,18 @@ function takeDirectory(args: Record<string, unknown>): { directory: string | und
   return { directory: trimmed, rest };
 }
 
+/** The engine's argument check, naming `directory` among the allowed arguments. */
+function parseArguments(rest: Record<string, unknown>) {
+  try {
+    return parseCodeSearchArguments(rest);
+  } catch (error) {
+    if (error instanceof CodeSearchArgumentError && error.message.endsWith("allowed: question, keywords, subQuestions, paths")) {
+      throw new CodeSearchArgumentError(`${error.message}, directory`);
+    }
+    throw error;
+  }
+}
+
 /** Model-facing text for a failure, with setup hints the engine's texts do not have. */
 function renderFailure(error: unknown): string {
   if (error instanceof ConfigError) return `code_search is not set up (${oneLine(error.message)}). ${FALLBACK}`;
@@ -185,7 +203,7 @@ function renderFailure(error: unknown): string {
   return renderCodeSearchError(error);
 }
 
-export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}): Server {
+export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}): McpServer {
   const env = options.env ?? process.env;
   const cwd = options.cwd ?? process.cwd();
   const home = options.home ?? homedir();
@@ -194,7 +212,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
   const fixed = [...(options.directories ?? [])];
   const rootsTimeoutMs = options.rootsTimeoutMs ?? 5_000;
 
-  const server = new Server(
+  const server = new McpServer(
     { name: "genigrep", version: VERSION },
     { capabilities: { tools: {} }, instructions: MCP_SERVER_INSTRUCTIONS },
   );
@@ -202,17 +220,19 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
   // The client's roots, fetched on first use and again after it says they changed. A failed listing counts
   // as no roots until then.
   let clientRoots: Promise<string[]> | null = null;
-  server.setNotificationHandler(RootsListChangedNotificationSchema, async () => {
+  server.setNotificationHandler("notifications/roots/list_changed", () => {
     clientRoots = null;
   });
 
   async function listClientRoots(): Promise<string[]> {
     if (!server.getClientCapabilities()?.roots) return [];
     try {
-      const { roots } = await server.listRoots(undefined, { timeout: rootsTimeoutMs });
+      const result = await server.request("roots/list", {}, rootsTimeoutMs);
+      const roots = (result as { roots?: unknown } | null)?.roots;
+      if (!Array.isArray(roots)) throw new Error("roots/list returned no roots array");
       const dirs: string[] = [];
-      for (const root of roots) {
-        if (!root.uri.startsWith("file:")) continue;
+      for (const root of roots as Array<{ uri?: unknown }>) {
+        if (typeof root?.uri !== "string" || !root.uri.startsWith("file:")) continue;
         let path: string;
         try {
           path = fileURLToPath(root.uri);
@@ -293,7 +313,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
     let lease: JevCircuitLease | null = null;
     try {
       const { directory, rest } = takeDirectory(args);
-      const request = parseCodeSearchArguments(rest);
+      const request = parseArguments(rest);
       const settings = await loadSettings(env);
       if (!settings.apiKey) {
         throw new ConfigError(
@@ -354,16 +374,20 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
     }
   }
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [MCP_TOOL] }));
+  server.setRequestHandler("tools/list", async () => ({ tools: [MCP_TOOL] }));
 
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    if (request.params.name !== CODE_SEARCH_TOOL_NAME) {
-      throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${request.params.name}`);
+  server.setRequestHandler("tools/call", async (params, context) => {
+    if (params.name !== CODE_SEARCH_TOOL_NAME) {
+      throw new McpError(McpErrorCode.InvalidParams, `Unknown tool: ${String(params.name)}`);
+    }
+    const args = params.arguments ?? {};
+    if (typeof args !== "object" || args === null || Array.isArray(args)) {
+      throw new McpError(McpErrorCode.InvalidParams, "arguments must be an object");
     }
     // Cancelled by the client (notifications/cancelled) or by the server shutting down.
-    const { signal, dispose } = combineSignals(extra.signal, options.signal);
+    const { signal, dispose } = combineSignals(context.signal, options.signal);
     try {
-      return await codeSearch(request.params.arguments ?? {}, signal);
+      return await codeSearch(args as Record<string, unknown>, signal);
     } finally {
       dispose();
     }

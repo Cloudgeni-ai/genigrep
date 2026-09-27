@@ -1,9 +1,9 @@
 /** `genigrep mcp`: the MCP server on stdin/stdout. Diagnostics go to stderr; stdout carries only protocol messages. */
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ConfigError, loadSettings } from "../config";
 import { EXIT, type McpCommand } from "../cli/args";
 import type { CliIo } from "../cli/main";
 import { findRipgrep } from "../ripgrep";
+import { StdioTransport } from "./protocol";
 import { createGenigrepMcpServer, resolveServerDirectories } from "./server";
 
 export async function serveMcp(command: McpCommand, io: CliIo): Promise<number> {
@@ -38,10 +38,11 @@ export async function serveMcp(command: McpCommand, io: CliIo): Promise<number> 
     signal: shutdown.signal,
     fetch: io.fetch,
   });
-  const transport = new StdioServerTransport();
+  const transport = new StdioTransport();
   const closed = new Promise<void>((resolve) => {
     server.onclose = resolve;
   });
+  server.onerror = (error) => log(`genigrep mcp: ${error.message}`);
   const close = () => {
     shutdown.abort();
     void server.close();

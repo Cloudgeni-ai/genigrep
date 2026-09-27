@@ -197,6 +197,7 @@ describeWithRipgrep("genigrep mcp: code_search", () => {
       const unknown = await s.call({ question, keywords, budget: 5 });
       expect(unknown.isError).toBe(true);
       expect(unknown.text).toContain('unknown argument "budget"');
+      expect(unknown.text).toContain("allowed: question, keywords, subQuestions, paths, directory");
       const absolute = await s.call({ question, keywords, paths: ["/etc"] });
       expect(absolute.isError).toBe(true);
       expect(absolute.text).toContain("is absolute");

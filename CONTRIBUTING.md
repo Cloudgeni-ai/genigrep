@@ -12,8 +12,10 @@ bun run build       # dist/index.js, dist/cli.js, dist/index.d.ts
 node dist/cli.js --help
 ```
 
-`bun run check` runs all three. `test/dist.test.ts` runs the built CLI under Node against a local fake
-Jev server, so run `bun run build` before `bun test` to include it.
+`bun run check` runs the typecheck, the build and the tests, in that order. `test/dist.test.ts` and
+`test/mcp-stdio.test.ts` run the built CLI under Node against a local fake Jev server, so run
+`bun run build` before `bun test` to include them. The MCP tests use the official MCP SDK client, a
+development dependency only; the server itself (`src/mcp/protocol.ts`) has no runtime dependency.
 
 To try a real search, store a key once (`node dist/cli.js auth`) or set `GENIGREP_JEV_API_KEY` for the
 command, then run `node dist/cli.js doctor`.
