@@ -21,9 +21,10 @@ import {
   type FakeJevLog,
 } from "./helpers/fixture";
 import { LocalCodeSearchWorkspace } from "./helpers/local-workspace";
+import { findRipgrep } from "../../src/ripgrep";
 
 // These run the real ripgrep binary; skip them where it is not installed.
-const describeWithRipgrep = Bun.which("rg") ? describe : describe.skip;
+const describeWithRipgrep = findRipgrep() ? describe : describe.skip;
 
 const question = "How is the compaction token threshold computed and when does a turn compact?";
 const keywords = [
