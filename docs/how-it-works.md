@@ -203,8 +203,9 @@ implements over its sandboxes and genigrep implements over a local directory in
   [`src/engine/code-search/recall.ts`](../src/engine/code-search/recall.ts).
 - **Secret files** (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`,
   `.netrc`, credential JSON files, `.ssh/`, `.aws/`, `.gnupg/`, `.kube/` and others) are excluded
-  twice: as ripgrep globs, and by name, because ripgrep searches a file it is given explicitly even
-  when a glob excludes it. Example files such as `.env.example` stay searchable.
+  twice, regardless of case: as ripgrep globs (`--iglob`), and by name, because ripgrep searches a
+  file it is given explicitly even when a glob excludes it. A path given explicitly that is a link is
+  checked by its target too. Example files such as `.env.example` stay searchable.
 - **Credentials directories**: searching from inside `.ssh`, `.aws`, `.gnupg` or `.kube` is refused,
   because the exclude globs only match paths below the searched directory.
 - **Bounds**: ripgrep output is capped at 32 MiB per call and cut at a line boundary; one file read
@@ -247,6 +248,11 @@ sure the client passes it to the server.
 agent to search with `rg`, `grep` or file reads instead. The server keeps one Jev circuit breaker:
 after 3 consecutive Jev outages it refuses calls at once for 5 minutes (30 minutes after a 401, 402
 or 403), then lets one trial call through. It logs to stderr only and never logs the key.
+
+**Protocol.** The server implements the part of MCP it needs (initialize, ping, `tools/list`,
+`tools/call`, cancellation and `roots/list`) over newline-delimited JSON-RPC in
+[`src/mcp/protocol.ts`](../src/mcp/protocol.ts), without the MCP SDK at runtime. The tests drive it
+with the official SDK client, in memory and over stdio.
 
 ## Why the wording matters
 

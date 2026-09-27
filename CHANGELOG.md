@@ -17,5 +17,11 @@ First version, ported from OpenGeni's `code_search` agent tool (`packages/jev`).
   limited to the directories given, the client's roots or the working directory.
 - An Agent Skill in `skills/genigrep` for Claude Code, Codex and other agents.
 - A credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`) is never searched as the root.
+- Secret files are matched regardless of case, a few more are covered (more `.env.*` variants,
+  `*.tfvars.json`, `*.p8`, `.vault-token`, `.s3cfg`, `.boto`, `.dockercfg`, the GitHub CLI's `hosts.yml`,
+  Cargo and RubyGems credentials), and a link named explicitly is checked by its target.
+- The MCP server has no runtime dependency (it implements the protocol subset it needs), so the only
+  runtime dependency is `@vscode/ripgrep`.
+- The bundled ripgrep is also found under pnpm's strict `node_modules` layout.
 - Documentation: README, `docs/how-it-works.md` (pipeline, limits, output, what is sent to Jev, MCP
   server), security policy, contributing guide and GitHub issue templates.

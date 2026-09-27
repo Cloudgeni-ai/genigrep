@@ -268,7 +268,7 @@ The engine was evaluated as OpenGeni's `code_search` tool, inside the OpenGeni a
 command line tool, MCP server, skill and derived keywords in this repository were not part of the
 evaluation.
 
-Setup: 26 real questions about the OpenGeni codebase (TypeScript, about 6,300 files), answered by the
+Setup: 26 real questions about the OpenGeni codebase (a TypeScript monorepo), answered by the
 agent with and without the tool, graded by two blind graders. The comparison is paired per question.
 Brackets are the study's paired confidence intervals.
 
@@ -321,7 +321,8 @@ header. Exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-
 `.rgignore`; binary files; dependency, build and cache directories (`node_modules`, `dist`, `target`,
 `vendor`, `.venv` and more); lock files and minified or generated files; and common secret files
 (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON
-files, `.ssh/`, `.aws/` and others). A secret file is skipped even when you name it. `.env.example`
+files, `.ssh/`, `.aws/` and others), matched regardless of case. A secret file is skipped even when you
+name it or a link to it. `.env.example`
 stays searchable.
 
 genigrep does not scan file contents for secrets. A credential hard-coded in an ordinary source file
