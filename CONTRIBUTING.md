@@ -27,7 +27,9 @@ output, the CLI) are welcome as usual.
 
 The model-facing wording matters as much as the ranking. The tool description and the pack header tell
 the agent that the evidence rating cannot see what the search missed. An earlier wording made agents
-over-trust the search and answer worse, so keep that meaning in any text an agent reads.
+over-trust the search and answer worse, so keep that meaning in any text an agent reads: the CLI help,
+the MCP tool description and instructions (`src/mcp/server.ts`) and the agent skill
+(`skills/genigrep/SKILL.md`).
 
 ## Pull requests
 

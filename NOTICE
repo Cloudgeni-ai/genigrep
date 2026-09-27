@@ -9,7 +9,9 @@ The code search engine in src/engine (the TypeSafe Jev client, the circuit
 breaker and the code_search pipeline) and its tests in test/engine were ported
 from OpenGeni's packages/jev at commit
 fe7ea0a6cf3f094cd00bbf066a2107fef049fe19. Changes made after the port are
-recorded in this repository's git history and CHANGELOG.md.
+recorded in this repository's git history and CHANGELOG.md. The code search
+instruction (CODE_SEARCH_DIRECTIVE), used by the MCP server and the agent
+skill, comes from OpenGeni's packages/runtime at the same commit.
 
 genigrep runs ripgrep (https://github.com/BurntSushi/ripgrep, MIT or Unlicense)
 through the @vscode/ripgrep npm package (MIT) or a ripgrep binary already

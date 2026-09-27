@@ -23,6 +23,11 @@ rather than in a public issue. Include what you found, how to reproduce it and t
   `src/workspace/excludes.ts`). A secret file is not searched even when named explicitly.
 - **The searched directory.** ripgrep runs with `--no-config` and a fixed flag allowlist (no `--pre`, no
   symlink following), and reads never leave the searched directory, including through symlinks.
+  A credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`) is refused as the searched directory.
+- **The MCP server.** `genigrep mcp` searches only the directories given on its command line, else the
+  workspace roots the client reports, else the directory it was started in (never the home directory or
+  the filesystem root by default). A tool call cannot search outside them. It logs to stderr only and
+  never logs the key.
 
 ## What it does not protect
 

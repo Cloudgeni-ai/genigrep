@@ -13,7 +13,8 @@ loop of `rg`, `sed -n`, `cat` and "let me look at that file too", so an agent sp
 tokens getting to the code that matters.
 
 It is the `code_search` tool from [OpenGeni](https://github.com/Cloudgeni-ai/opengeni), packaged as a
-standalone command line tool and library.
+standalone command line tool, an [MCP server](#mcp-server) and a library, with an
+[agent skill](#agent-skill) that teaches coding agents when to use it.
 
 ```console
 $ genigrep "Where is the Codex usage limit error classified?" \
@@ -49,6 +50,9 @@ genigrep: 15 passages from 10 files, ~10.5k tokens | 2.3s | jev 17 requests, 91.
 - [Quick start](#quick-start)
 - [Usage](#usage)
 - [Using genigrep from a coding agent](#using-genigrep-from-a-coding-agent)
+  - [Agent skill](#agent-skill)
+  - [MCP server](#mcp-server)
+  - [Instructions snippet](#instructions-snippet)
 - [How it works](#how-it-works)
 - [What is sent to Jev](#what-is-sent-to-jev)
 - [Cost and speed](#cost-and-speed)
@@ -112,6 +116,7 @@ PATH, and `GENIGREP_RG_PATH` picks a specific binary.
 genigrep "<question>" [path] [options]
 genigrep auth [--no-verify | --remove | --status]
 genigrep doctor [--json]
+genigrep mcp [dir ...]
 genigrep --version
 ```
 
@@ -169,7 +174,129 @@ answer quality. Use `rg` directly in that case.
 
 ## Using genigrep from a coding agent
 
-Add something like this to your agent instructions (`AGENTS.md`, `CLAUDE.md` or a system prompt):
+There are three ways to give an agent genigrep. They can be combined.
+
+- **Agent skill.** Teaches the agent when to run `genigrep`, when to use `rg` instead, and how to read
+  the results. Works with any agent that can run shell commands and reads Agent Skills.
+- **MCP server.** `genigrep mcp` gives the agent a `code_search` tool, for agents that speak the Model
+  Context Protocol.
+- **Instructions snippet.** A paragraph for `AGENTS.md`, `CLAUDE.md` or a system prompt.
+
+All three are built from the wording OpenGeni shipped. An earlier wording made agents over-trust the
+search and answer worse; the shipped wording, which says the evidence rating cannot see what the search
+missed, fixed that. Keep that meaning if you adapt the text. The same caution is repeated in the first
+lines of every evidence pack.
+
+Keywords matter. The evaluation used keywords chosen by the agent, which knows the question's
+vocabulary. Keywords derived from the question work for quick human use but usually find less, so the
+skill and the MCP tool ask the agent for keywords.
+
+### Agent skill
+
+[`skills/genigrep/SKILL.md`](skills/genigrep/SKILL.md) is an [Agent Skill](https://agentskills.io): when
+to use genigrep (questions that span unfamiliar code), when not to (a known symbol, file or string), how
+to call it, and how to use the results (read the passages first, do not re-read them, check what they
+do not cover, verify critical claims). Install it by copying the directory from a clone of this
+repository:
+
+| Agent | All projects | One project |
+| --- | --- | --- |
+| Claude Code | `cp -r skills/genigrep ~/.claude/skills/` | `cp -r skills/genigrep <project>/.claude/skills/` |
+| Codex | `cp -r skills/genigrep ~/.agents/skills/` | `cp -r skills/genigrep <project>/.agents/skills/` |
+| Other agents | Copy `skills/genigrep` into the agent's skills directory. | |
+
+Once this repository is public, `npx skills add Cloudgeni-ai/genigrep` installs the skill for the
+agents it detects.
+
+The skill runs the `genigrep` command, so install it and store a key first ([Quick start](#quick-start)).
+
+### MCP server
+
+`genigrep mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server on stdin and
+stdout with one tool, `code_search`. Its inputs are OpenGeni's tool schema plus a directory:
+
+| Input | Meaning |
+| --- | --- |
+| `question` (required) | One precise question about the code. |
+| `keywords` (required) | 6-15 likely identifiers, file-name fragments, config keys, error strings and synonyms. |
+| `subQuestions` | Up to 3 distinct parts of the question. |
+| `paths` | Up to 8 files or directories to limit the search to, relative to the searched directory. |
+| `directory` | The directory to search, absolute or relative to the project root. Default: the project root. |
+
+The result is the evidence pack as text, ending with the directory its paths are relative to. Failures
+(no key, Jev down, invalid arguments) come back as tool errors that tell the agent to search with `rg`
+instead. The server also sends OpenGeni's code search instruction as MCP server instructions, which
+clients that support them add to the agent's context.
+
+Which directories the server searches:
+
+1. The directories given on its command line (`genigrep mcp ~/src/app ~/src/lib`), if any.
+2. Otherwise the workspace roots the client reports.
+3. Otherwise the directory the client started it in. If that is the home directory or the filesystem
+   root, a call must name its `directory`; genigrep does not guess.
+
+A call's `directory` must stay inside those directories, and a credentials directory such as `~/.aws`
+is never searched.
+
+The server reads the key stored by `genigrep auth` on every call, so no key goes into the client's
+configuration, and running `genigrep auth` later takes effect without a restart. If you use
+`GENIGREP_JEV_API_KEY` instead, make sure the client passes it to the server.
+
+The examples below run `genigrep` from your PATH (see [Install](#install)). Once genigrep is on npm,
+`npx -y genigrep mcp` works without a global install.
+
+**Claude Code**
+
+```bash
+claude mcp add --scope user genigrep -- genigrep mcp
+```
+
+Or, for one project, in `.mcp.json` at the project root:
+
+```json
+{
+  "mcpServers": {
+    "genigrep": { "command": "genigrep", "args": ["mcp"] }
+  }
+}
+```
+
+**Codex**
+
+```bash
+codex mcp add genigrep -- genigrep mcp
+```
+
+Or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.genigrep]
+command = "genigrep"
+args = ["mcp"]
+# Only when the key comes from the environment instead of `genigrep auth`:
+# env_vars = ["GENIGREP_JEV_API_KEY"]
+```
+
+**Cursor**
+
+In `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
+
+```json
+{
+  "mcpServers": {
+    "genigrep": { "command": "genigrep", "args": ["mcp"] }
+  }
+}
+```
+
+Cursor reports the open workspace as MCP roots, and genigrep searches them. In a project's
+`.cursor/mcp.json` you can name the folder instead: `"args": ["mcp", "${workspaceFolder}"]`.
+
+Other MCP clients: run `genigrep mcp` as a stdio server. `genigrep help mcp` lists its options.
+
+### Instructions snippet
+
+For agents without skills or MCP, add something like this to your agent instructions:
 
 ```markdown
 ## Code search
@@ -187,11 +314,6 @@ If genigrep exits with 3 or 4, search with rg instead.
 ```
 
 This is the tool description OpenGeni ships, adapted to the command line. Keep its last two sentences.
-An earlier wording made agents over-trust the search and answer worse; the shipped wording fixed that.
-The same caution is repeated in the first lines of every evidence pack.
-
-Keywords matter. The evaluation used keywords chosen by the agent, which knows the question's
-vocabulary. Keywords derived from the question work for quick human use but usually find less.
 
 ## How it works
 
@@ -277,8 +399,9 @@ Two more results shaped the design:
   measurable effect either way. That sample is small.
 
 Limits of this evidence: one codebase (TypeScript, about 6,300 files), 26 questions, one agent
-harness, and agents that also had ordinary shell search available. Keywords derived by genigrep itself
-were not evaluated. Other repositories, languages and agents may differ.
+harness, and agents that also had ordinary shell search available. Keywords derived by genigrep itself,
+the agent skill and the MCP server were not evaluated. Other repositories, languages and agents may
+differ.
 
 ### TODO: head-to-head against jevgrep
 
@@ -320,7 +443,7 @@ for (const p of result.passages) console.log(p.path, p.start, p.end, p.rel);
 
 For hosts that wire code search into their own agent tools, the package also exports the engine
 (`runCodeSearch`, `JevClient`, `JevCircuitBreaker`), the tool surface (`CODE_SEARCH_TOOL_DESCRIPTION`,
-`codeSearchInputSchema`, `parseCodeSearchArguments`, `renderCodeSearchError`), the `LocalWorkspace`
+`CODE_SEARCH_DIRECTIVE`, `codeSearchInputSchema`, `parseCodeSearchArguments`, `renderCodeSearchError`), the `LocalWorkspace`
 adapter and the `CodeSearchWorkspace` interface for other workspaces (OpenGeni implements it over its
 sandboxes).
 
@@ -330,7 +453,7 @@ sandboxes).
 bun install
 bun run typecheck
 bun run build
-bun test          # never calls the real Jev API; test/dist.test.ts runs dist/cli.js under Node
+bun test          # never calls the real Jev API; the dist and MCP stdio tests run dist/cli.js under Node
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before changing the engine's ranking or wording.
