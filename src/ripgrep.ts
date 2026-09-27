@@ -28,17 +28,26 @@ function isExecutableFile(path: string): boolean {
 /**
  * The binary from @vscode/ripgrep. The package installs a per-platform optional dependency
  * (`@vscode/ripgrep-<platform>-<arch>`), resolved here the same way the package itself does, without
- * importing it (its entry point throws when the platform package is missing).
+ * importing it (its entry point throws when the platform package is missing). It is resolved from
+ * @vscode/ripgrep's own location first, because strict layouts (pnpm) do not hoist it next to genigrep.
  */
 export function bundledRipgrepPath(): string | null {
   const require = createRequire(import.meta.url);
   const arch = process.env.npm_config_arch || process.arch;
-  try {
-    const path = require.resolve(`@vscode/ripgrep-${process.platform}-${arch}/bin/${EXE}`);
-    return isExecutableFile(path) ? path : null;
-  } catch {
-    return null;
+  const target = `@vscode/ripgrep-${process.platform}-${arch}/bin/${EXE}`;
+  const resolvers: Array<() => string> = [
+    () => createRequire(require.resolve("@vscode/ripgrep")).resolve(target),
+    () => require.resolve(target),
+  ];
+  for (const resolveBinary of resolvers) {
+    try {
+      const path = resolveBinary();
+      if (isExecutableFile(path)) return path;
+    } catch {
+      // try the next way
+    }
   }
+  return null;
 }
 
 /** First `rg` on PATH. */
