@@ -20,7 +20,8 @@ rather than in a public issue. Include what you found, how to reproduce it and t
 - **What is never read.** Files excluded by `.gitignore`, `.ignore` and `.rgignore`, binary files,
   dependency and build directories, and common secret files (`.env`, `.env.local`, private keys,
   `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON files, `.ssh/`, `.aws/` and others; see
-  `src/workspace/excludes.ts`). A secret file is not searched even when named explicitly.
+  `src/workspace/excludes.ts`), matched regardless of case. A secret file is not searched even when it,
+  or a link to it, is named explicitly.
 - **The searched directory.** ripgrep runs with `--no-config` and a fixed flag allowlist (no `--pre`, no
   symlink following), and reads never leave the searched directory, including through symlinks.
   A credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`) is refused as the searched directory.

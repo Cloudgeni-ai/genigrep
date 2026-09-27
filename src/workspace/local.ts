@@ -14,7 +14,7 @@ import {
   type CodeSearchWorkspace,
 } from "../engine";
 import { findRipgrep } from "../ripgrep";
-import { DEFAULT_EXCLUDE_GLOBS, isSecretDirectory, isSecretPath } from "./excludes";
+import { DEPENDENCY_EXCLUDE_GLOBS, SECRET_EXCLUDE_GLOBS, isSecretDirectory, isSecretPath } from "./excludes";
 
 /** ripgrep stdout kept per call; more is cut at a line boundary and reported as truncated. */
 export const LOCAL_RIPGREP_MAX_STDOUT_BYTES = 32 * 1024 * 1024;
@@ -107,9 +107,11 @@ export interface LocalWorkspaceOptions {
   maxStdoutBytes?: number | undefined;
   /** Upper bound on one file read. */
   maxReadBytes?: number | undefined;
-  /** ripgrep exclude globs added to every call. Default: DEFAULT_EXCLUDE_GLOBS. */
+  /** ripgrep exclude globs added to every call, matched with case. Default: DEPENDENCY_EXCLUDE_GLOBS. */
   excludeGlobs?: readonly string[] | undefined;
-  /** Paths that are never searched or read even when named explicitly. Default: isSecretPath. */
+  /** Secret-file exclude globs added to every call, matched without case (`--iglob`). Default: SECRET_EXCLUDE_GLOBS. */
+  secretGlobs?: readonly string[] | undefined;
+  /** Paths that are never searched or read, even when named explicitly or reached through a link. Default: isSecretPath. */
   isExcludedPath?: ((relPath: string) => boolean) | undefined;
 }
 
@@ -120,6 +122,7 @@ export class LocalWorkspace implements CodeSearchWorkspace {
   private readonly maxStdoutBytes: number;
   private readonly maxReadBytes: number;
   private readonly excludeGlobs: readonly string[];
+  private readonly secretGlobs: readonly string[];
   private readonly isExcludedPath: (relPath: string) => boolean;
 
   constructor(root: string, options: LocalWorkspaceOptions = {}) {
@@ -137,7 +140,8 @@ export class LocalWorkspace implements CodeSearchWorkspace {
     this.rgPath = options.rgPath ?? findRipgrep()?.path ?? null;
     this.maxStdoutBytes = Math.max(1, options.maxStdoutBytes ?? LOCAL_RIPGREP_MAX_STDOUT_BYTES);
     this.maxReadBytes = Math.max(1, options.maxReadBytes ?? LOCAL_MAX_READ_BYTES);
-    this.excludeGlobs = options.excludeGlobs ?? DEFAULT_EXCLUDE_GLOBS;
+    this.excludeGlobs = options.excludeGlobs ?? DEPENDENCY_EXCLUDE_GLOBS;
+    this.secretGlobs = options.secretGlobs ?? SECRET_EXCLUDE_GLOBS;
     this.isExcludedPath = options.isExcludedPath ?? isSecretPath;
   }
 
@@ -147,13 +151,16 @@ export class LocalWorkspace implements CodeSearchWorkspace {
   ): Promise<CodeSearchRipgrepResult> {
     options.signal?.throwIfAborted();
     const { flags, paths } = validateRipgrepArgs(args);
-    const allowed = paths.filter((p) => p === "." || !this.isExcludedPath(p));
+    const allowed: string[] = [];
+    for (const p of paths) if (await this.searchable(p)) allowed.push(p);
     if (!allowed.length) return { stdout: "", exitCode: 1, truncated: false, timedOut: false };
     if (!this.rgPath) throw new CodeSearchRipgrepMissingError("ripgrep (rg) is not installed");
     const argv = [
       "--no-config",
       ...flags,
       ...this.excludeGlobs.flatMap((g) => ["-g", g]),
+      // Added after every -g glob, so they take precedence.
+      ...this.secretGlobs.flatMap((g) => ["--iglob", g]),
       ...(process.platform === "win32" ? ["--path-separator", "/"] : []),
       "--",
       ...allowed,
@@ -177,7 +184,7 @@ export class LocalWorkspace implements CodeSearchWorkspace {
     try {
       const real = await realpath(abs);
       // A link may point anywhere: the target must be inside the root and not a secret file either.
-      if (!this.contains(real) || this.isExcludedPath(relative(this.root, real))) return null;
+      if (!this.allowedTarget(real)) return null;
       fh = await open(abs, "r");
       const st = await fh.stat();
       if (!st.isFile()) return null;
@@ -216,7 +223,7 @@ export class LocalWorkspace implements CodeSearchWorkspace {
         continue;
       }
       try {
-        if (!this.contains(await realpath(abs))) {
+        if (!this.allowedTarget(await realpath(abs))) {
           out[p] = "missing";
           continue;
         }
@@ -227,6 +234,29 @@ export class LocalWorkspace implements CodeSearchWorkspace {
       }
     }
     return out;
+  }
+
+  /**
+   * Whether ripgrep may be given this path explicitly. ripgrep searches a named file even when a glob
+   * excludes it, and follows a named link, so the name and the link's target must both pass.
+   */
+  private async searchable(path: string): Promise<boolean> {
+    if (path === ".") return true;
+    if (this.isExcludedPath(path)) return false;
+    let real: string;
+    try {
+      real = await realpath(resolve(this.root, path));
+    } catch {
+      return true; // missing: ripgrep reports it like before
+    }
+    return this.allowedTarget(real);
+  }
+
+  /** A real path inside the root that is not, and is not inside, a secret file or directory. */
+  private allowedTarget(real: string): boolean {
+    if (!this.contains(real)) return false;
+    const rel = relative(this.root, real);
+    return rel === "" || !this.isExcludedPath(rel);
   }
 
   /** Absolute path of a workspace-relative path; throws when it would leave the root. */

@@ -5,12 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { CodeSearchRipgrepMissingError, CodeSearchWorkspaceError } from "../src/engine";
 import { findRipgrep } from "../src/ripgrep";
-import {
-  DEFAULT_EXCLUDE_GLOBS,
-  SECRET_EXCLUDE_GLOBS,
-  isSecretDirectory,
-  isSecretPath,
-} from "../src/workspace/excludes";
+import { DEPENDENCY_EXCLUDE_GLOBS, SECRET_EXCLUDE_GLOBS, isSecretDirectory, isSecretPath } from "../src/workspace/excludes";
 import {
   LocalWorkspace,
   cutAtRecordBoundary,
@@ -121,6 +116,18 @@ describe("isSecretPath", () => {
       ".docker/config.json",
       ".ssh",
       "home/.aws",
+      ".ENV",
+      "certs/Server.PEM",
+      "GoogleCredentials.json",
+      ".Env.Production",
+      ".SSH/config",
+      ".env.qa",
+      "prod.tfvars.json",
+      "AuthKey_ABC123.p8",
+      ".vault-token",
+      ".config/gh/hosts.yml",
+      ".cargo/credentials.toml",
+      ".gem/credentials",
     ];
     const ordinary = [
       ".env.example",
@@ -132,6 +139,11 @@ describe("isSecretPath", () => {
       "config.json",
       "src/kubeconfig/load.go",
       "terraform/main.tf",
+      ".ENV.EXAMPLE",
+      "src/Credentials/index.ts",
+      "credentials",
+      "src/gh/hosts.ts",
+      "cargo/credentials.rs",
     ];
     for (const p of secret) expect([p, isSecretPath(p)]).toEqual([p, true]);
     for (const p of ordinary) expect([p, isSecretPath(p)]).toEqual([p, false]);
@@ -171,9 +183,21 @@ describeWithRipgrep("LocalWorkspace", () => {
       "src/secrets.ts",
       "config.json",
       "keys.md",
+      ".Env.Local",
+      "certs/Server.PEM",
+      "GoogleCredentials.json",
+      ".env.uat",
+      "prod.tfvars.json",
+      "AuthKey_ABC123.p8",
+      ".vault-token",
+      ".config/gh/hosts.yml",
+      ".cargo/credentials.toml",
+      ".gem/credentials",
+      "src/gh/hosts.ts",
     ];
     const root = tree(Object.fromEntries(names.map((n) => [n, "token\n"])));
-    const ws = new LocalWorkspace(root, { excludeGlobs: SECRET_EXCLUDE_GLOBS });
+    // Only the secret globs (the default), not the dependency globs.
+    const ws = new LocalWorkspace(root, { excludeGlobs: [] });
     const listed = files((await ws.ripgrep(listArgs, timeout)).stdout);
     const expected = names.filter((n) => !isSecretPath(n)).sort();
     expect(listed).toEqual(expected);
@@ -334,7 +358,31 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(isSecretDirectory("/home/u/projects/kube")).toBe(false);
   });
 
-  test("the default globs include the secret globs", () => {
-    for (const g of SECRET_EXCLUDE_GLOBS) expect(DEFAULT_EXCLUDE_GLOBS).toContain(g);
+  test("secret and dependency globs are separate negations", () => {
+    for (const g of [...SECRET_EXCLUDE_GLOBS, ...DEPENDENCY_EXCLUDE_GLOBS]) expect(g.startsWith("!")).toBe(true);
+    expect(SECRET_EXCLUDE_GLOBS.some((g) => DEPENDENCY_EXCLUDE_GLOBS.includes(g))).toBe(false);
+  });
+
+  test("a named link to a secret file or directory inside the root is neither searched nor classified", async () => {
+    const root = tree({
+      ".env.production": "API_TOKEN=live-value\n",
+      ".aws/credentials": "API_TOKEN=live-value\n",
+      "src/a.ts": "API_TOKEN\n",
+    });
+    symlinkSync(".env.production", join(root, "notes.txt"));
+    symlinkSync(".aws", join(root, "cfg"));
+    const ws = new LocalWorkspace(root);
+    const r = await ws.ripgrep(
+      ["--line-number", "--with-filename", "--no-heading", "-e", "API_TOKEN", "--", "notes.txt", "cfg", "src"],
+      timeout,
+    );
+    expect(r.stdout).toContain("src/a.ts");
+    expect(r.stdout).not.toContain("live-value");
+    expect(await ws.pathKinds(["notes.txt", "cfg", "src"], {})).toEqual({
+      "notes.txt": "missing",
+      cfg: "missing",
+      src: "directory",
+    });
+    expect(await ws.readText("cfg/credentials", { maxBytes: 100 })).toBeNull();
   });
 });

@@ -14,7 +14,6 @@ export {
   type LocalWorkspaceOptions,
 } from "./workspace/local";
 export {
-  DEFAULT_EXCLUDE_GLOBS,
   DEPENDENCY_EXCLUDE_GLOBS,
   SECRET_EXCLUDE_GLOBS,
   isSecretDirectory,
