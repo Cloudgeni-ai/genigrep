@@ -28,7 +28,7 @@ import { VERSION } from "../version";
 import { isSecretPath } from "../workspace/excludes";
 import { LocalWorkspace } from "../workspace/local";
 import { EXIT, UsageError, parseCommand, type AuthCommand, type SearchCommand } from "./args";
-import { AUTH_HELP, DOCTOR_HELP, SEARCH_HELP } from "./help";
+import { AUTH_HELP, DOCTOR_HELP, MCP_HELP, SEARCH_HELP } from "./help";
 
 export interface CliIo {
   stdout: (text: string) => void;
@@ -44,6 +44,8 @@ export interface CliIo {
 }
 
 class InterruptedError extends Error {}
+
+const HELP = { search: SEARCH_HELP, auth: AUTH_HELP, doctor: DOCTOR_HELP, mcp: MCP_HELP } as const;
 
 export async function main(argv: readonly string[], io: CliIo): Promise<number> {
   let command;
@@ -61,12 +63,17 @@ export async function main(argv: readonly string[], io: CliIo): Promise<number> 
       io.stdout(`genigrep ${VERSION}\n`);
       return EXIT.OK;
     case "help":
-      io.stdout(command.topic === "auth" ? AUTH_HELP : command.topic === "doctor" ? DOCTOR_HELP : SEARCH_HELP);
+      io.stdout(HELP[command.topic]);
       return EXIT.OK;
     case "auth":
       return await auth(command, io);
     case "doctor":
       return await doctor(command.json, io);
+    case "mcp": {
+      // Loaded on demand so ordinary searches do not load the MCP SDK.
+      const { serveMcp } = await import("../mcp/stdio");
+      return await serveMcp(command, io);
+    }
     case "search":
       return await search(command, io);
   }

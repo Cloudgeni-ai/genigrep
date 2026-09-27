@@ -4,6 +4,7 @@ Usage:
   genigrep "<question>" [path] [options]
   genigrep auth [--no-verify | --remove | --status]
   genigrep doctor [--json]
+  genigrep mcp [dir ...]
   genigrep --version
 
 Search:
@@ -23,7 +24,7 @@ Options:
       --json            Print one JSON object (passages, leads, status, stats) instead of text.
   -v, --verbose         Also print keywords, stage timings and counts to stderr.
   -q, --quiet           Do not print the cost and time summary.
-  -h, --help            Show help (also: genigrep help auth, genigrep help doctor).
+  -h, --help            Show help (also: genigrep help auth, genigrep help doctor, genigrep help mcp).
   -V, --version         Show the version.
 
 Read the passages instead of re-opening those files. The evidence rating in the first line covers only
@@ -67,4 +68,22 @@ export const DOCTOR_HELP = `Usage:
 Checks the runtime, finds ripgrep and runs it on a probe file, reads the config, and makes one tiny Jev
 call with the configured key (about 300 input tokens, well under $0.0001). Exits 0 when everything works,
 3 for a setup problem and 4 when the Jev call fails.
+`;
+
+export const MCP_HELP = `Usage:
+  genigrep mcp [dir ...] [-q]
+
+Runs a Model Context Protocol server on stdin/stdout with one tool, code_search, for coding agents
+(Claude Code, Codex, Cursor and others). It searches the given directories; without any, the workspace
+roots the client reports, else the directory the server was started in. A call may pick another directory
+inside those with its directory argument.
+
+The server uses the same API key and settings as the command line (genigrep auth, GENIGREP_JEV_API_KEY).
+Setup problems are reported to the agent on each call, so it can fall back to rg.
+
+  -q, --quiet   Do not log to stderr.
+
+Examples:
+  claude mcp add genigrep -- genigrep mcp
+  codex mcp add genigrep -- genigrep mcp
 `;

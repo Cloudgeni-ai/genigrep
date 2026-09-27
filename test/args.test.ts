@@ -75,6 +75,8 @@ describe("parseCommand", () => {
     expect(parseCommand([])).toEqual({ kind: "help", topic: "search" });
     expect(parseCommand(["--help"])).toEqual({ kind: "help", topic: "search" });
     expect(parseCommand(["help", "auth"])).toEqual({ kind: "help", topic: "auth" });
+    expect(parseCommand(["help", "mcp"])).toEqual({ kind: "help", topic: "mcp" });
+    expect(parseCommand(["mcp", "--help"])).toEqual({ kind: "help", topic: "mcp" });
     expect(parseCommand(["auth", "--help"])).toEqual({ kind: "help", topic: "auth" });
     expect(parseCommand(["Where is it?", "-h"])).toEqual({ kind: "help", topic: "search" });
   });
@@ -92,5 +94,11 @@ describe("parseCommand", () => {
       ["doctor", "--fix"],
     ];
     for (const argv of bad) expect(() => parseCommand(argv)).toThrow(UsageError);
+  });
+
+  test("mcp takes directories and --quiet", () => {
+    expect(parseCommand(["mcp"])).toEqual({ kind: "mcp", directories: [], quiet: false });
+    expect(parseCommand(["mcp", "a", "../b", "-q"])).toEqual({ kind: "mcp", directories: ["a", "../b"], quiet: true });
+    expect(() => parseCommand(["mcp", "--json"])).toThrow(UsageError);
   });
 });

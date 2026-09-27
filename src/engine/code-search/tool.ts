@@ -17,6 +17,16 @@ export const CODE_SEARCH_TOOL_DESCRIPTION =
   "missed: use the passages instead of re-reading them, then check what they do not cover (other entry points, " +
   "defaults, flags, exceptions) before concluding.";
 
+/**
+ * The instruction OpenGeni adds to the agent's instructions whenever it offers code_search (ported from
+ * OpenGeni's packages/runtime, where it is named CODE_SEARCH_DIRECTIVE). In testing the tool saved cost and
+ * time on code investigation when the agent started with it, so it says that plainly rather than relying on
+ * the tool description alone. Hosts that can add instructions (MCP server instructions, a system prompt)
+ * should use it as is.
+ */
+export const CODE_SEARCH_DIRECTIVE =
+  "To find where something is implemented, configured or decided in the code, start with one `code_search` call (a precise question plus 6-15 likely identifiers, file-name fragments, config keys or error strings) instead of a series of separate searches and file reads. When the question asks whether something is required, enforced or the default, add a subQuestion and keywords for what could skip, bypass or override it. Use the returned passages directly instead of re-reading them. Their evidence rating covers only what the search returned, so spend follow-up searches outside those passages: other entry points to the same outcome (API routes, automatic or self-service paths), defaults, flags, exceptions and its unfollowed leads.";
+
 export const CODE_SEARCH_LIMITS = {
   questionMinChars: 3,
   questionMaxChars: 2000,

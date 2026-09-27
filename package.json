@@ -18,7 +18,9 @@
     "coding-agent",
     "cli",
     "retrieval",
-    "jev"
+    "jev",
+    "mcp",
+    "agent-skill"
   ],
   "type": "module",
   "bin": {
@@ -35,6 +37,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "README.md",
     "LICENSE",
     "NOTICE",
@@ -52,6 +55,7 @@
     "prepublishOnly": "bun run check"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
     "@vscode/ripgrep": "^1.18.0"
   },
   "devDependencies": {

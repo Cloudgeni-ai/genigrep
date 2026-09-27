@@ -45,14 +45,28 @@ export interface AuthCommand {
   verify: boolean;
 }
 
+export interface McpCommand {
+  kind: "mcp";
+  /** Directories the server may search, as given; empty means the client's roots, else the current directory. */
+  directories: string[];
+  quiet: boolean;
+}
+
+export type HelpTopic = "search" | "auth" | "doctor" | "mcp";
+
 export type Command =
   | SearchCommand
   | AuthCommand
+  | McpCommand
   | { kind: "doctor"; json: boolean }
-  | { kind: "help"; topic: "search" | "auth" | "doctor" }
+  | { kind: "help"; topic: HelpTopic }
   | { kind: "version" };
 
-const SUBCOMMANDS = new Set(["search", "auth", "doctor", "help"]);
+const SUBCOMMANDS = new Set(["search", "auth", "doctor", "mcp", "help"]);
+
+function helpTopic(name: string | undefined): HelpTopic {
+  return name === "auth" || name === "doctor" || name === "mcp" ? name : "search";
+}
 
 function fail(error: unknown): never {
   const message = error instanceof Error ? error.message : String(error);
@@ -76,15 +90,11 @@ export function parseCommand(argv: readonly string[]): Command {
   if (first === undefined || first === "--help" || first === "-h") return { kind: "help", topic: "search" };
   const sub = SUBCOMMANDS.has(first) ? first : "search";
   const rest = sub === "search" && first !== "search" ? argv : argv.slice(1);
-  if (sub === "help") {
-    const topic = rest[0];
-    return { kind: "help", topic: topic === "auth" || topic === "doctor" ? topic : "search" };
-  }
-  if (rest.includes("--help") || rest.includes("-h")) {
-    return { kind: "help", topic: sub === "auth" || sub === "doctor" ? sub : "search" };
-  }
+  if (sub === "help") return { kind: "help", topic: helpTopic(rest[0]) };
+  if (rest.includes("--help") || rest.includes("-h")) return { kind: "help", topic: helpTopic(sub) };
   if (sub === "auth") return parseAuth(rest);
   if (sub === "doctor") return parseDoctor(rest);
+  if (sub === "mcp") return parseMcp(rest);
   return parseSearch(rest);
 }
 
@@ -126,6 +136,21 @@ function parseDoctor(args: readonly string[]): Command {
     fail(error);
   }
   return { kind: "doctor", json: Boolean(parsed.values.json) };
+}
+
+function parseMcp(args: readonly string[]): McpCommand {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: [...args],
+      options: { quiet: { type: "boolean", short: "q" } },
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (error) {
+    fail(error);
+  }
+  return { kind: "mcp", directories: parsed.positionals, quiet: Boolean(parsed.values.quiet) };
 }
 
 function parseSearch(args: readonly string[]): SearchCommand {

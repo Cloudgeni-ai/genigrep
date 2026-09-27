@@ -53,6 +53,7 @@ jobs:
         run: |
           node dist/cli.js --version
           node dist/cli.js --help > /dev/null
+          node dist/cli.js help mcp > /dev/null
           # No API key in CI: doctor must find ripgrep and then exit 3 (setup problem).
           set +e
           node dist/cli.js doctor

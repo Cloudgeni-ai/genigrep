@@ -61,6 +61,7 @@ export {
   type CodeSearchConfigOverride,
 } from "./code-search/config";
 export {
+  CODE_SEARCH_DIRECTIVE,
   CODE_SEARCH_LIMITS,
   CODE_SEARCH_TOOL_DESCRIPTION,
   CODE_SEARCH_TOOL_NAME,
