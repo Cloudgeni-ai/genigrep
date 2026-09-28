@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 (2026-09-28)
+
+- README: fix the `npx` MCP command (`npx -y @opengeni/genigrep mcp`).
+
 ## 0.1.0 (2026-09-28)
 
 First version, ported from OpenGeni's `code_search` agent tool (`packages/jev`).

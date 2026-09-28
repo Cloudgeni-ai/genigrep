@@ -216,7 +216,7 @@ args = ["mcp"]
 }
 ```
 
-Other clients: run `ggr mcp` as a stdio server. `npx -y @opengeni/ggr mcp` works without a global
+Other clients: run `ggr mcp` as a stdio server. `npx -y @opengeni/genigrep mcp` works without a global
 install.
 
 The server searches the directories given on its command line (`ggr mcp ~/src/app`), otherwise
