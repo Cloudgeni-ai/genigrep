@@ -1,5 +1,5 @@
 /**
- * `genigrep mcp` as a real child process: the SDK's stdio client spawns it, lists the tools and calls
+ * `ggr mcp` as a real child process: the SDK's stdio client spawns it, lists the tools and calls
  * code_search against a fixture repository, with Jev replaced by a local fake server. Runs the source under
  * Bun, and the published build under Node once `bun run build` has produced dist/.
  */
@@ -90,11 +90,11 @@ async function exercise(command: string, args: string[]) {
     await s.client.close();
   }
   // The server logs to stderr only, and never the key.
-  expect(s.stderr()).toContain("genigrep mcp ready");
+  expect(s.stderr()).toContain("ggr mcp ready");
   expect(s.stderr()).not.toContain(KEY);
 }
 
-(hasRipgrep ? describe : describe.skip)("genigrep mcp over stdio", () => {
+(hasRipgrep ? describe : describe.skip)("ggr mcp over stdio", () => {
   test("source under Bun", async () => {
     await exercise(process.execPath, [sourceCli]);
   }, 30_000);
@@ -104,7 +104,7 @@ async function exercise(command: string, args: string[]) {
   }, 30_000);
 });
 
-describe("genigrep mcp startup", () => {
+describe("ggr mcp startup", () => {
   test("a missing directory is a setup error before any protocol traffic", async () => {
     const proc = Bun.spawn([process.execPath, sourceCli, "mcp", join(tmpdir(), "genigrep-no-such-dir-51")], {
       stdin: "pipe",

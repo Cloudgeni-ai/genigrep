@@ -155,7 +155,7 @@ describeWithRipgrep("genigrep search", () => {
   test("no API key exits 3 with a hint", async () => {
     const r = await run([question, ".", ...kw], { withKey: false });
     expect(r.code).toBe(EXIT.SETUP);
-    expect(r.stderr).toContain("genigrep auth");
+    expect(r.stderr).toContain("ggr auth");
   });
 
   test("a missing directory exits 3", async () => {
@@ -172,7 +172,7 @@ describeWithRipgrep("genigrep search", () => {
     expect((await run([question, ".", "-k", many])).code).toBe(EXIT.USAGE);
   });
 
-  test("a rejected key exits 4 and points to genigrep auth", async () => {
+  test("a rejected key exits 4 and points to ggr auth", async () => {
     const r = await run([question, ".", ...kw], { jev: { rejectStatus: 401 } });
     expect(r.code).toBe(EXIT.JEV);
     expect(r.stderr).toContain("Jev rejected the API key (HTTP 401)");
@@ -209,7 +209,7 @@ describeWithRipgrep("genigrep search", () => {
   });
 });
 
-describe("genigrep auth", () => {
+describe("ggr auth", () => {
   test("verifies, stores the key with mode 600, reports and removes it", async () => {
     const cfg = temp("genigrep-auth-");
     const env = { XDG_CONFIG_HOME: cfg };
@@ -250,7 +250,7 @@ describe("genigrep auth", () => {
   });
 });
 
-describeWithRipgrep("genigrep doctor", () => {
+describeWithRipgrep("ggr doctor", () => {
   test("passes with a working key and ripgrep", async () => {
     const r = await run(["doctor"]);
     expect(r.code).toBe(EXIT.OK);
@@ -277,7 +277,7 @@ describeWithRipgrep("genigrep doctor", () => {
   });
 });
 
-describe("genigrep --version and --help", () => {
+describe("ggr --version and --help", () => {
   test("print and exit 0", async () => {
     const v = await run(["--version"]);
     expect(v.code).toBe(0);

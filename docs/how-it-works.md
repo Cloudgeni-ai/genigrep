@@ -215,7 +215,7 @@ implements over its sandboxes and genigrep implements over a local directory in
 
 ## MCP server
 
-`genigrep mcp` ([`src/mcp/server.ts`](../src/mcp/server.ts)) runs a stdio MCP server with one
+`ggr mcp` ([`src/mcp/server.ts`](../src/mcp/server.ts)) runs a stdio MCP server with one
 read-only tool, `code_search`:
 
 | Input | Meaning |
@@ -233,14 +233,14 @@ agent's context.
 
 **Which directories it searches:**
 
-1. The directories given on its command line (`genigrep mcp ~/src/app ~/src/lib`), if any.
+1. The directories given on its command line (`ggr mcp ~/src/app ~/src/lib`), if any.
 2. Otherwise the workspace roots the client reports, read again when the client says they changed.
 3. Otherwise the directory the client started it in. If that is the home directory or the filesystem
    root, a call must name a `directory` below it.
 
 A call's `directory` must stay inside these directories.
 
-**Key and settings.** The server reads the key and settings on every call, so running `genigrep auth`
+**Key and settings.** The server reads the key and settings on every call, so running `ggr auth`
 later takes effect without restarting the client. If you use `GENIGREP_JEV_API_KEY` instead, make
 sure the client passes it to the server.
 

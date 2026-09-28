@@ -24,7 +24,8 @@
   ],
   "type": "module",
   "bin": {
-    "genigrep": "./dist/cli.js"
+    "genigrep": "./dist/cli.js",
+    "ggr": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

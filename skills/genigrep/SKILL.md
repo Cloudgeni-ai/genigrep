@@ -2,7 +2,7 @@
 name: genigrep
 description: Find where something is implemented, configured or decided in a codebase with one genigrep call, which returns only the verified source passages that answer a question. Use it when a question spans code you do not know yet, such as where X is decided, how Y flows from request to result, what configures Z, or whether a check can be skipped. Do not use it when you already know the symbol, file or exact string; use rg or read the file directly.
 license: Apache-2.0
-compatibility: Needs the genigrep command (Node.js 20 or newer) with a TypeSafe Jev API key stored by `genigrep auth`, or the code_search tool from `genigrep mcp`.
+compatibility: Needs the ggr command (from the @opengeni/genigrep package) (Node.js 20 or newer) with a TypeSafe Jev API key stored by `ggr auth`, or the code_search tool from `ggr mcp`.
 ---
 
 # genigrep
@@ -35,7 +35,7 @@ to find where something is implemented, configured or decided in code you do not
 ## How to call it
 
 ```bash
-genigrep "<one precise question>" -k <keyword>,<keyword>,... [-s "<part of the question>"] [--in <dir>] [dir]
+ggr "<one precise question>" -k <keyword>,<keyword>,... [-s "<part of the question>"] [--in <dir>] [dir]
 ```
 
 - Give 6-15 keywords: likely identifiers (camelCase, snake_case, UPPER_CASE), file-name fragments,
@@ -50,7 +50,7 @@ genigrep "<one precise question>" -k <keyword>,<keyword>,... [-s "<part of the q
 Example:
 
 ```bash
-genigrep "Where is the usage limit error classified, and what happens after it?" \
+ggr "Where is the usage limit error classified, and what happens after it?" \
   -k usageLimit,usage_limit_reached,rate_limit,429,classifyError,quota,retryAfter \
   -s "What does the caller do after the error is classified?"
 ```
@@ -81,7 +81,7 @@ did not follow. A one-line cost summary goes to stderr.
 | 0 | Passages found | Use them as above. |
 | 1 | No passage was verified | Try once more with different keywords or a narrower question, then use rg. |
 | 2 | Invalid arguments | Fix the command line (quote the question). |
-| 3 | Setup problem (no API key, no ripgrep, missing directory) | Use rg, and tell the user to run `genigrep auth` or `genigrep doctor`. |
+| 3 | Setup problem (no API key, no ripgrep, missing directory) | Use rg, and tell the user to run `ggr auth` or `ggr doctor`. |
 | 4 | The relevance model failed or rejected the key | Use rg; do not retry in a loop. |
 | 5 | Other failure | Use rg. |
 

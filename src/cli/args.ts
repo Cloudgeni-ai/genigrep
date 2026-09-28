@@ -175,7 +175,7 @@ function parseSearch(args: readonly string[]): SearchCommand {
   }
   const v = parsed.values;
   const positionals = parsed.positionals;
-  if (!positionals.length) throw new UsageError("missing the question; see genigrep --help");
+  if (!positionals.length) throw new UsageError("missing the question; see ggr --help");
   if (positionals.length > 2) {
     throw new UsageError(
       `expected a question and at most one directory, got ${positionals.length} arguments; quote the question`,

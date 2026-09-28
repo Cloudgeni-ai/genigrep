@@ -125,7 +125,7 @@ function describeFailure(error: unknown, signal: AbortSignal | undefined): { kin
     if (error.status === 401 || error.status === 403) {
       return {
         kind: "jev_unavailable",
-        message: `Jev rejected the API key (HTTP ${error.status}). Run \`genigrep auth\` to store a valid key. ${FALLBACK}`,
+        message: `Jev rejected the API key (HTTP ${error.status}). Run \`ggr auth\` to store a valid key. ${FALLBACK}`,
       };
     }
     if (error.status === 402) {
@@ -254,7 +254,7 @@ async function search(command: SearchCommand, io: CliIo): Promise<number> {
     for (const w of settings.warnings) io.stderr(`genigrep: warning: ${w}\n`);
     if (!settings.apiKey) {
       throw new ConfigError(
-        `no Jev API key. Run \`genigrep auth\` or set ${ENV_API_KEY} (see genigrep help auth)`,
+        `no Jev API key. Run \`ggr auth\` or set ${ENV_API_KEY} (see ggr help auth)`,
       );
     }
     target = await resolveTarget(command, io.cwd);
@@ -343,7 +343,7 @@ async function auth(command: AuthCommand, io: CliIo): Promise<number> {
         ? `set in ${ENV_API_KEY}`
         : settings.apiKeySource === "config"
           ? `stored in ${settings.configPath}`
-          : `not set (run genigrep auth or set ${ENV_API_KEY})`;
+          : `not set (run ggr auth or set ${ENV_API_KEY})`;
     io.stdout(`Jev API key: ${where}\nJev endpoint: ${settings.baseUrl} (model ${settings.model})\n`);
     for (const w of settings.warnings) io.stderr(`genigrep: warning: ${w}\n`);
     return settings.apiKey ? EXIT.OK : EXIT.SETUP;
@@ -381,7 +381,7 @@ async function auth(command: AuthCommand, io: CliIo): Promise<number> {
       if (kind === "interrupted") return EXIT.INTERRUPTED;
       const reason = message
         .replace(/ Search with rg or grep instead\.$/, "")
-        .replace(/ Run `genigrep auth` to store a valid key\.$/, "");
+        .replace(/ Run `ggr auth` to store a valid key\.$/, "");
       io.stderr(`genigrep: ${reason}\n`);
       io.stderr("genigrep: nothing was stored (use --no-verify to store the key anyway)\n");
       return EXIT.JEV;
@@ -463,7 +463,7 @@ async function doctor(json: boolean, io: CliIo): Promise<number> {
   }
   if (settings) {
     if (!settings.apiKey) {
-      add("api key", false, `not set: run genigrep auth or set ${ENV_API_KEY}`);
+      add("api key", false, `not set: run ggr auth or set ${ENV_API_KEY}`);
     } else {
       add("api key", true, settings.apiKeySource === "env" ? `from ${ENV_API_KEY}` : `stored in ${settings.configPath}`);
       try {

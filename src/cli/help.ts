@@ -1,11 +1,11 @@
 export const SEARCH_HELP = `genigrep - ask a question about a codebase, get back only the source that answers it
 
 Usage:
-  genigrep "<question>" [path] [options]
-  genigrep auth [--no-verify | --remove | --status]
-  genigrep doctor [--json]
-  genigrep mcp [dir ...]
-  genigrep --version
+  ggr "<question>" [path] [options]
+  ggr auth [--no-verify | --remove | --status]
+  ggr doctor [--json]
+  ggr mcp [dir ...]
+  ggr --version
 
 Search:
   path is the directory to search (default: the current directory); output paths are relative to it.
@@ -24,7 +24,7 @@ Options:
       --json            Print one JSON object (passages, leads, status, stats) instead of text.
   -v, --verbose         Also print keywords, stage timings and counts to stderr.
   -q, --quiet           Do not print the cost and time summary.
-  -h, --help            Show help (also: genigrep help auth, genigrep help doctor, genigrep help mcp).
+  -h, --help            Show help (also: ggr help auth, ggr help doctor, ggr help mcp).
   -V, --version         Show the version.
 
 Read the passages instead of re-opening those files. The evidence rating in the first line covers only
@@ -45,25 +45,25 @@ Exit codes:
   130 interrupted
 
 Examples:
-  genigrep "Where is the usage limit error classified?" -k usageLimit,rate_limit,429,classifyError
-  genigrep "How is the retry delay computed?" ./services/api --in src -s "What caps the delay?"
-  genigrep "Which env vars configure the database?" --json | jq '.passages[].path'
+  ggr "Where is the usage limit error classified?" -k usageLimit,rate_limit,429,classifyError
+  ggr "How is the retry delay computed?" ./services/api --in src -s "What caps the delay?"
+  ggr "Which env vars configure the database?" --json | jq '.passages[].path'
 `;
 
 export const AUTH_HELP = `Usage:
-  genigrep auth               Store a TypeSafe Jev API key (prompted without echo, or read from stdin)
-  genigrep auth --no-verify   Store it without the test call to Jev
-  genigrep auth --status      Show where the key comes from (the key itself is never printed)
-  genigrep auth --remove      Delete the stored key
+  ggr auth               Store a TypeSafe Jev API key (prompted without echo, or read from stdin)
+  ggr auth --no-verify   Store it without the test call to Jev
+  ggr auth --status      Show where the key comes from (the key itself is never printed)
+  ggr auth --remove      Delete the stored key
 
 The key is stored in $XDG_CONFIG_HOME/genigrep/config.json (default ~/.config/genigrep/config.json;
 %APPDATA%\\genigrep\\config.json on Windows) with mode 600. GENIGREP_JEV_API_KEY overrides it.
 
-  printf '%s' "$KEY" | genigrep auth
+  printf '%s' "$KEY" | ggr auth
 `;
 
 export const DOCTOR_HELP = `Usage:
-  genigrep doctor [--json]
+  ggr doctor [--json]
 
 Checks the runtime, finds ripgrep and runs it on a probe file, reads the config, and makes one tiny Jev
 call with the configured key (about 300 input tokens). Exits 0 when everything works,
@@ -71,19 +71,19 @@ call with the configured key (about 300 input tokens). Exits 0 when everything w
 `;
 
 export const MCP_HELP = `Usage:
-  genigrep mcp [dir ...] [-q]
+  ggr mcp [dir ...] [-q]
 
 Runs a Model Context Protocol server on stdin/stdout with one tool, code_search, for coding agents
 (Claude Code, Codex, Cursor and others). It searches the given directories; without any, the workspace
 roots the client reports, else the directory the server was started in. A call may pick another directory
 inside those with its directory argument.
 
-The server uses the same API key and settings as the command line (genigrep auth, GENIGREP_JEV_API_KEY).
+The server uses the same API key and settings as the command line (ggr auth, GENIGREP_JEV_API_KEY).
 Setup problems are reported to the agent on each call, so it can fall back to rg.
 
   -q, --quiet   Do not log to stderr.
 
 Examples:
-  claude mcp add genigrep -- genigrep mcp
-  codex mcp add genigrep -- genigrep mcp
+  claude mcp add genigrep -- ggr mcp
+  codex mcp add genigrep -- ggr mcp
 `;

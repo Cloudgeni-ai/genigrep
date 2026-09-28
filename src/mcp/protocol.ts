@@ -249,7 +249,7 @@ export class McpServer {
 /** Largest message accepted on stdin, like the MCP SDK's stdio transport. */
 export const STDIO_MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
 
-/** Newline-delimited JSON-RPC on a readable and a writable stream (stdin and stdout for `genigrep mcp`). */
+/** Newline-delimited JSON-RPC on a readable and a writable stream (stdin and stdout for `ggr mcp`). */
 export class StdioTransport implements McpTransport {
   private buffer: Buffer = Buffer.alloc(0);
   private started = false;

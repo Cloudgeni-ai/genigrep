@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-09-28)
 
 First version, ported from OpenGeni's `code_search` agent tool (`packages/jev`).
 
@@ -10,9 +10,9 @@ First version, ported from OpenGeni's `code_search` agent tool (`packages/jev`).
 - `LocalWorkspace`: ripgrep (bundled through `@vscode/ripgrep`, or `rg` on PATH) and bounded file reads
   over a local directory, honouring `.gitignore`, skipping binaries, dependency directories and secret
   files.
-- The `genigrep` command line: search, `auth`, `doctor`, `--json`, documented exit codes.
+- The `ggr` command line (also installed as `genigrep`): search, `auth`, `doctor`, `--json`, documented exit codes.
 - Keywords derived from the question when none are given.
-- `genigrep mcp`: a stdio MCP server with one `code_search` tool (OpenGeni's schema plus `directory`),
+- `ggr mcp`: a stdio MCP server with one `code_search` tool (OpenGeni's schema plus `directory`),
   OpenGeni's tool wording and code search instruction, one Jev circuit breaker per server, and searches
   limited to the directories given, the client's roots or the working directory.
 - An Agent Skill in `skills/genigrep` for Claude Code, Codex and other agents.

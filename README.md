@@ -33,6 +33,8 @@ Requires Node.js 20 or newer, or Bun. Tested on Linux and macOS.
 npm install -g @opengeni/genigrep
 ```
 
+This installs the `ggr` command. `genigrep` also works.
+
 ripgrep comes with it through the [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep)
 package. If that binary is missing, genigrep uses `rg` from your PATH. `GENIGREP_RG_PATH` picks a
 specific binary.
@@ -51,29 +53,29 @@ bun install && bun run build && npm link
    mode `600`:
 
    ```bash
-   genigrep auth
+   ggr auth
    ```
 
    Or set `GENIGREP_JEV_API_KEY` in the environment instead.
 3. Ask a question about the current directory:
 
    ```bash
-   genigrep "How is the retry delay computed?" .
+   ggr "How is the retry delay computed?" .
    ```
 
 Without `-k`, genigrep derives keywords from the question. Results are better when you name likely
 identifiers, config keys and error strings yourself:
 
 ```bash
-genigrep "How is the retry delay computed?" -k retryDelay,backoff,RETRY_MAX,retry-after,maxDelay
+ggr "How is the retry delay computed?" -k retryDelay,backoff,RETRY_MAX,retry-after,maxDelay
 ```
 
-`genigrep doctor` checks ripgrep, the config and the key if something does not work.
+`ggr doctor` checks ripgrep, the config and the key if something does not work.
 
 Example, run against the public OpenGeni repository (`...` marks lines cut here):
 
 ```console
-$ genigrep "Where is the Codex usage limit error classified?" \
+$ ggr "Where is the Codex usage limit error classified?" \
     -k usage_limit_reached,CODEX_USAGE_LIMIT_ERROR_TYPE,classifyCodexUsageLimitError,usageLimit,resets_in_seconds,429,quota,rateLimit
 genigrep: evidence rating 0.94 | 15 passages from 10 files, ~10.5k tokens | 2.3s
 Passages are verbatim with original line numbers (N| text), grouped by file, best first; rel = relevance, [sN] = covers sub-question N. The rating covers only these passages; it cannot see other entry points, defaults, flags or exceptions the search did not return.
@@ -97,11 +99,11 @@ stderr.
 ## Usage
 
 ```text
-genigrep "<question>" [path] [options]
-genigrep auth [--no-verify | --remove | --status]
-genigrep doctor [--json]
-genigrep mcp [dir ...]
-genigrep --version
+ggr "<question>" [path] [options]
+ggr auth [--no-verify | --remove | --status]
+ggr doctor [--json]
+ggr mcp [dir ...]
+ggr --version
 ```
 
 `path` is the directory to search (default: the current directory). Paths in the output are relative
@@ -133,9 +135,9 @@ The output format and the JSON fields are described in [docs/how-it-works.md](do
 
 There are three ways to give an agent genigrep, and they can be combined:
 
-- **Agent skill.** Teaches the agent when to run `genigrep`, when to use `rg` instead, and how to read
+- **Agent skill.** Teaches the agent when to run `ggr`, when to use `rg` instead, and how to read
   the results. For agents that run shell commands and read Agent Skills.
-- **MCP server.** `genigrep mcp` gives the agent a `code_search` tool.
+- **MCP server.** `ggr mcp` gives the agent a `code_search` tool.
 - **Instructions snippet.** A paragraph for `AGENTS.md`, `CLAUDE.md` or a system prompt.
 
 All three reuse the wording OpenGeni ships with the tool. An earlier wording made agents trust the
@@ -163,19 +165,19 @@ agents:
 npx skills add Cloudgeni-ai/genigrep
 ```
 
-The skill runs the `genigrep` command, so install genigrep and store a key first.
+The skill runs the `ggr` command, so install genigrep and store a key first.
 
 ### MCP server
 
-`genigrep mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio with
+`ggr mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio with
 one read-only tool, `code_search`. It takes a question, keywords, optional sub-questions, optional
-paths and an optional directory. It reads the key stored by `genigrep auth` on every call, so no key
+paths and an optional directory. It reads the key stored by `ggr auth` on every call, so no key
 goes into the client's configuration.
 
 **Claude Code**
 
 ```bash
-claude mcp add --scope user genigrep -- genigrep mcp
+claude mcp add --scope user genigrep -- ggr mcp
 ```
 
 Or, for one project, in `.mcp.json`:
@@ -183,7 +185,7 @@ Or, for one project, in `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "genigrep": { "command": "genigrep", "args": ["mcp"] }
+    "genigrep": { "command": "ggr", "args": ["mcp"] }
   }
 }
 ```
@@ -191,16 +193,16 @@ Or, for one project, in `.mcp.json`:
 **Codex**
 
 ```bash
-codex mcp add genigrep -- genigrep mcp
+codex mcp add genigrep -- ggr mcp
 ```
 
 Or in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.genigrep]
-command = "genigrep"
+command = "ggr"
 args = ["mcp"]
-# Only if the key comes from the environment instead of `genigrep auth`:
+# Only if the key comes from the environment instead of `ggr auth`:
 # env_vars = ["GENIGREP_JEV_API_KEY"]
 ```
 
@@ -209,15 +211,15 @@ args = ["mcp"]
 ```json
 {
   "mcpServers": {
-    "genigrep": { "command": "genigrep", "args": ["mcp"] }
+    "genigrep": { "command": "ggr", "args": ["mcp"] }
   }
 }
 ```
 
-Other clients: run `genigrep mcp` as a stdio server. `npx -y @opengeni/genigrep mcp` works without a global
+Other clients: run `ggr mcp` as a stdio server. `npx -y @opengeni/ggr mcp` works without a global
 install.
 
-The server searches the directories given on its command line (`genigrep mcp ~/src/app`), otherwise
+The server searches the directories given on its command line (`ggr mcp ~/src/app`), otherwise
 the workspace roots the client reports, otherwise the directory it was started in. In that last case
 it will not search the home directory or the filesystem root. A tool call cannot leave these
 directories, and a credentials directory such as `~/.aws` is never searched. Details:
@@ -231,7 +233,7 @@ For agents without skills or MCP:
 ## Code search
 
 To find where something is implemented, configured or decided in this repository, run
-`genigrep "<one precise question>" -k <keywords>` instead of many separate searches and file reads.
+`ggr "<one precise question>" -k <keywords>` instead of many separate searches and file reads.
 Give 6-15 keywords: likely identifiers, file-name fragments, config keys, error strings and synonyms
 (comma-separated). Optional `-s "<part>"` flags split distinct parts of the question (for "is X
 required?", add one for what could skip or override X); optional `--in <dir>` limits the search.
@@ -320,7 +322,7 @@ can be sent as part of a passage. See [SECURITY.md](SECURITY.md).
 
 | Setting | Environment variable | Config file key | Default |
 | --- | --- | --- | --- |
-| API key | `GENIGREP_JEV_API_KEY` | set by `genigrep auth` | none |
+| API key | `GENIGREP_JEV_API_KEY` | set by `ggr auth` | none |
 | Jev endpoint | `GENIGREP_JEV_BASE_URL` | `jevBaseUrl` | `https://api.typesafe.ai` |
 | Jev model | `GENIGREP_JEV_MODEL` | `jevModel` | `jev-latest` |
 | Jev request timeout (ms) | `GENIGREP_JEV_TIMEOUT_MS` | | `10000` |
@@ -329,7 +331,7 @@ can be sent as part of a passage. See [SECURITY.md](SECURITY.md).
 Environment variables override the config file. The config file is
 `$XDG_CONFIG_HOME/genigrep/config.json` (default `~/.config/genigrep/config.json`,
 `%APPDATA%\genigrep\config.json` on Windows), created with mode `600` in a `700` directory. The key is
-never printed or logged; `genigrep auth --status` shows where it comes from, not what it is. The
+never printed or logged; `ggr auth --status` shows where it comes from, not what it is. The
 endpoint must use HTTPS, except for `localhost`.
 
 To exclude more paths, list them in a `.ignore` or `.rgignore` file (gitignore syntax).

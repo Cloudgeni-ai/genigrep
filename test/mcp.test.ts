@@ -108,7 +108,7 @@ async function connect(
   };
 }
 
-describe("genigrep mcp: tool surface", () => {
+describe("ggr mcp: tool surface", () => {
   test("advertises one read-only code_search tool with OpenGeni's wording and instructions", async () => {
     const s = await connect();
     try {
@@ -143,7 +143,7 @@ describe("genigrep mcp: tool surface", () => {
   });
 });
 
-describeWithRipgrep("genigrep mcp: code_search", () => {
+describeWithRipgrep("ggr mcp: code_search", () => {
   test("returns the evidence pack for the project directory", async () => {
     const s = await connect();
     try {
@@ -154,7 +154,7 @@ describeWithRipgrep("genigrep mcp: code_search", () => {
       expect(r.text).toMatch(/\n\d+\| export function compactionThresholdTokens/);
       expect(r.text).toMatch(/\nPaths are relative to .+code-search-fixture-[^\n]+\.$/);
       expect(s.log.requests.length).toBeGreaterThan(0);
-      expect(s.logs.some((l) => /^genigrep mcp: code_search \d+ passages \| .* \| jev \d+ requests/.test(l))).toBe(true);
+      expect(s.logs.some((l) => /^ggr mcp: code_search \d+ passages \| .* \| jev \d+ requests/.test(l))).toBe(true);
       expect(s.logs.join("\n")).not.toContain(KEY);
     } finally {
       await s.close();
@@ -315,7 +315,7 @@ describeWithRipgrep("genigrep mcp: code_search", () => {
     try {
       const r = await s.call({ question, keywords });
       expect(r.isError).toBe(true);
-      expect(r.text).toContain("genigrep auth");
+      expect(r.text).toContain("ggr auth");
       expect(r.text).toContain("Search with rg, grep or file reads instead.");
       expect(s.log.requests.length).toBe(0);
     } finally {

@@ -194,7 +194,7 @@ function renderFailure(error: unknown): string {
   if (error instanceof JevUnavailableError && (error.status === 401 || error.status === 403)) {
     return (
       `code_search is unavailable: Jev rejected the API key (HTTP ${error.status}). Ask the user to run ` +
-      `\`genigrep auth\` in a terminal to store a valid key. ${FALLBACK}`
+      `\`ggr auth\` in a terminal to store a valid key. ${FALLBACK}`
     );
   }
   if (error instanceof JevUnavailableError && error.status === 402) {
@@ -245,7 +245,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
       return dirs;
     } catch (error) {
       // Kept until the client says its roots changed, so a client that never answers costs one timeout.
-      log(`genigrep mcp: could not list the client's roots (${oneLine(error instanceof Error ? error.message : String(error), 160)})`);
+      log(`ggr mcp: could not list the client's roots (${oneLine(error instanceof Error ? error.message : String(error), 160)})`);
       return [];
     }
   }
@@ -302,7 +302,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
         throw new CodeSearchArgumentError(
           `the server does not know which project to search: it was started in ${target} and the client reported ` +
             "no workspace roots. Pass directory with the absolute project path, or start the server as " +
-            "`genigrep mcp <project directory>`",
+            "`ggr mcp <project directory>`",
         );
       }
     }
@@ -317,7 +317,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
       const settings = await loadSettings(env);
       if (!settings.apiKey) {
         throw new ConfigError(
-          `genigrep has no Jev API key; ask the user to run \`genigrep auth\` in a terminal or set ${ENV_API_KEY} in this MCP server's environment`,
+          `genigrep has no Jev API key; ask the user to run \`ggr auth\` in a terminal or set ${ENV_API_KEY} in this MCP server's environment`,
         );
       }
       const rg = findRipgrep(env);
@@ -354,7 +354,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
       }
       const s = result.stats;
       log(
-        `genigrep mcp: code_search ${result.passages.length} passages | ${(s.wallMs / 1000).toFixed(1)}s | ` +
+        `ggr mcp: code_search ${result.passages.length} passages | ${(s.wallMs / 1000).toFixed(1)}s | ` +
           `jev ${s.jev.requests} requests, ${s.jev.inputTokens} input tokens, $${s.jev.costUsd.toFixed(4)}`,
       );
       const text = result.text.endsWith("\n") ? result.text : `${result.text}\n`;
@@ -366,7 +366,7 @@ export function createGenigrepMcpServer(options: GenigrepMcpServerOptions = {}):
         lease = null;
         breaker.recordFailure(error, Date.now(), held);
       } else if (!(error instanceof CodeSearchArgumentError || error instanceof ConfigError)) {
-        log(`genigrep mcp: code_search failed: ${oneLine(error instanceof Error ? error.message : String(error))}`);
+        log(`ggr mcp: code_search failed: ${oneLine(error instanceof Error ? error.message : String(error))}`);
       }
       return textResult(renderFailure(error), true);
     } finally {
