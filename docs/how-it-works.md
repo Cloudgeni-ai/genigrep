@@ -30,7 +30,7 @@ evaluation set and are the same as in OpenGeni.
 
 A Jev request carries a shared state (for example a list of candidate files) and many short questions
 about it, and returns one probability per question. OpenGeni measured about 0.4 seconds per request.
-Jev costs $0.042 per million input tokens; output tokens are free.
+Jev is an API from [TypeSafe](https://typesafe.ai).
 
 The client in [`src/engine/client.ts`](../src/engine/client.ts):
 

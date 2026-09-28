@@ -66,7 +66,7 @@ export const DOCTOR_HELP = `Usage:
   genigrep doctor [--json]
 
 Checks the runtime, finds ripgrep and runs it on a probe file, reads the config, and makes one tiny Jev
-call with the configured key (about 300 input tokens, well under $0.0001). Exits 0 when everything works,
+call with the configured key (about 300 input tokens). Exits 0 when everything works,
 3 for a setup problem and 4 when the Jev call fails.
 `;
 

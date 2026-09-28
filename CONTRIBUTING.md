@@ -35,7 +35,7 @@ the MCP tool description and instructions (`src/mcp/server.ts`) and the agent sk
 
 ## Documentation
 
-- [README.md](README.md) is the entry point: install, agent setup, measured results, cost, privacy,
+- [README.md](README.md) is the entry point: install, agent setup, measured results, privacy,
   configuration and limitations. Keep it short and link to details.
 - [docs/how-it-works.md](docs/how-it-works.md) describes the pipeline and its limits with the default
   numbers. Update it in the same pull request when you change a default, a limit, the ignore lists, what

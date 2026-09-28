@@ -46,7 +46,7 @@ bun install && bun run build && npm link
 
 ## Quick start
 
-1. Get a TypeSafe API key with Jev access from [TypeSafe](https://typesafe.ai).
+1. Get a TypeSafe API key with Jev access from [TypeSafe](https://typesafe.ai), which also lists pricing.
 2. Store it. genigrep asks for it without echoing, checks it with one small Jev call and saves it with
    mode `600`:
 
@@ -89,10 +89,10 @@ Passages are verbatim with original line numbers (N| text), grouped by file, bes
 More candidates (not included; read if needed):
   apps/worker/src/activities/agent-turn/errors.ts:1434-1498 (0.49), ...
 Leads not followed: CodexAccountStatus (0.48) @apps/worker/src/activities/agent-turn/errors.ts:1320, ...
-genigrep: 15 passages from 10 files, ~10.5k tokens | 2.3s | jev 17 requests, 91.3k input tokens, $0.0038
 ```
 
-The last line goes to stderr; everything else goes to stdout.
+This goes to stdout. A one-line summary with the number of Jev requests and the time taken goes to
+stderr.
 
 ## Usage
 
@@ -115,7 +115,7 @@ to it.
 | `-b, --budget <n>` | Maximum size of the output in tokens (default 12000). |
 | `--json` | Print one JSON object instead of text. |
 | `-v, --verbose` | Also print keywords, stage timings and counts to stderr. |
-| `-q, --quiet` | Do not print the cost and time line on stderr. |
+| `-q, --quiet` | Do not print the summary line on stderr. |
 
 | Exit code | Meaning |
 | --- | --- |
@@ -151,7 +151,7 @@ the agent for them.
 agent's skills directory:
 
 ```bash
-SKILL="$(npm root -g)/genigrep/skills/genigrep"
+SKILL="$(npm root -g)/@opengeni/genigrep/skills/genigrep"
 cp -r "$SKILL" ~/.claude/skills/     # Claude Code, all projects (or <project>/.claude/skills/)
 cp -r "$SKILL" ~/.agents/skills/     # Codex, all projects (or <project>/.agents/skills/)
 ```
@@ -286,20 +286,13 @@ Other results:
   is why genigrep fails instead of falling back to keyword ranking when Jev is unavailable.
 - **Bug fixing.** On Terminal-Bench 2.1 and SWE-rebench (12 tasks each, one trial) there was no
   measurable effect.
-- **Jev cost** was about $0.006 per call.
 
 Limits: one repository in one language, 26 questions, one agent harness, and a small bug-fixing
 sample. Other codebases, languages and agents may behave differently.
 
 > **Methodology:** the evaluation is described in OpenGeni's [code search documentation](https://github.com/Cloudgeni-ai/opengeni/blob/main/docs/code-search.md).
 
-
-## Cost and privacy
-
-**Cost.** Jev costs $0.042 per million input tokens; output tokens are free. In the evaluation a
-search cost about $0.006. Four example searches on the OpenGeni repository made 13-21 Jev requests
-with 72k-121k input tokens, cost $0.003-0.005 each and took 2.1-2.4 seconds from a laptop. The stderr
-line of every search shows its exact cost.
+## Privacy
 
 **What is sent to Jev.** genigrep does not upload your repository. Jev receives only what it needs to
 judge:
@@ -318,8 +311,7 @@ header. Exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-
 `vendor`, `.venv` and more); lock files and minified or generated files; and common secret files
 (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON
 files, `.ssh/`, `.aws/` and others), matched regardless of case. A secret file is skipped even when you
-name it or a link to it. `.env.example`
-stays searchable.
+name it or a link to it. `.env.example` stays searchable.
 
 genigrep does not scan file contents for secrets. A credential hard-coded in an ordinary source file
 can be sent as part of a passage. See [SECURITY.md](SECURITY.md).
