@@ -1,3 +1,5 @@
+import { CODE_SEARCH_CREDENTIAL_DIRS, isCodeSearchCredentialPath } from "../engine/code-search/recall";
+
 /**
  * Paths genigrep never searches or reads, on top of the engine's built-in excludes (node_modules, dist,
  * build, target, vendor, .git, lock files, minified and generated files, images and archives) and on top of
@@ -52,6 +54,8 @@ export const SECRET_EXCLUDE_GLOBS: readonly string[] = [
   "!**/.gem/credentials",
   "!**/.cargo/credentials",
   "!**/.cargo/credentials.toml",
+  // platform credential directories (.opengeni, .azure, .config/opengeni), also excluded by the engine
+  ...CODE_SEARCH_CREDENTIAL_DIRS.map((dir) => `!**/${dir.join("/")}/**`),
 ];
 
 /** Dependency, virtualenv and cache directories the engine's built-in list does not cover. */
@@ -117,18 +121,25 @@ const SECRET_FILES_IN: ReadonlyMap<string, ReadonlySet<string>> = new Map([
 ]);
 const SECRET_DIRS = new Set([".ssh", ".aws", ".gnupg", ".kube"]);
 
-/**
- * True for a workspace-relative path that SECRET_EXCLUDE_GLOBS excludes, or that lies in a credentials
- * directory. Matching ignores case, like the `--iglob` globs.
- */
-export function isSecretPath(relPath: string): boolean {
-  const parts = relPath
+/** Lower-cased path segments, without empty and "." segments. */
+function segments(path: string): string[] {
+  return path
     .split(/[\\/]+/)
     .filter((p) => p && p !== ".")
     .map((p) => p.toLowerCase());
+}
+
+/**
+ * True for a workspace-relative path that SECRET_EXCLUDE_GLOBS excludes, or that lies in a credentials
+ * directory (including the platform credential directories `.opengeni`, `.azure` and `.config/opengeni`).
+ * Matching ignores case, like the `--iglob` globs.
+ */
+export function isSecretPath(relPath: string): boolean {
+  const parts = segments(relPath);
   const name = parts[parts.length - 1];
   if (!name) return false;
   if (parts.some((part) => SECRET_DIRS.has(part))) return true;
+  if (isCodeSearchCredentialPath(parts.join("/"))) return true;
   const parent = parts[parts.length - 2];
   if (parent !== undefined && SECRET_FILES_IN.get(parent)?.has(name)) return true;
   if (SECRET_NAMES.has(name)) return true;
@@ -136,10 +147,12 @@ export function isSecretPath(relPath: string): boolean {
 }
 
 /**
- * True for a directory that is, or lies inside, a credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`).
+ * True for a directory that is, or lies inside, a credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`,
+ * `.opengeni`, `.azure`, `.config/opengeni`).
  * The exclude globs match paths relative to the searched directory, so a search rooted inside one of these
  * would not see the directory name; LocalWorkspace refuses such a root instead.
  */
 export function isSecretDirectory(path: string): boolean {
-  return path.split(/[\\/]+/).some((part) => SECRET_DIRS.has(part.toLowerCase()));
+  const parts = segments(path);
+  return parts.some((part) => SECRET_DIRS.has(part)) || isCodeSearchCredentialPath(parts.join("/"));
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Never search or read platform credential directories: OpenGeni's `.opengeni/` (sandbox Codemode bearer
+  tokens and Git credentials), the Azure CLI's `.azure/` and an OpenGeni Connected Machine's
+  `.config/opengeni/`, at any depth and regardless of case. They are excluded from every ripgrep call, an
+  explicit path into one (or a link resolving into one) is refused, and a search rooted inside one is
+  refused. Ported from OpenGeni's `code_search`.
+
 ## 0.1.1 (2026-09-28)
 
 - README: fix the `npx` MCP command (`npx -y @opengeni/genigrep mcp`).

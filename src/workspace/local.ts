@@ -12,6 +12,7 @@ import {
   CodeSearchWorkspaceError,
   type CodeSearchRipgrepResult,
   type CodeSearchWorkspace,
+  isCodeSearchCredentialPath,
 } from "../engine";
 import { findRipgrep } from "../ripgrep";
 import { DEPENDENCY_EXCLUDE_GLOBS, SECRET_EXCLUDE_GLOBS, isSecretDirectory, isSecretPath } from "./excludes";
@@ -111,7 +112,11 @@ export interface LocalWorkspaceOptions {
   excludeGlobs?: readonly string[] | undefined;
   /** Secret-file exclude globs added to every call, matched without case (`--iglob`). Default: SECRET_EXCLUDE_GLOBS. */
   secretGlobs?: readonly string[] | undefined;
-  /** Paths that are never searched or read, even when named explicitly or reached through a link. Default: isSecretPath. */
+  /**
+   * Paths that are never searched or read, even when named explicitly or reached through a link. Default:
+   * isSecretPath. The platform credential directories (`.opengeni`, `.azure`, `.config/opengeni`) stay
+   * excluded whatever this returns.
+   */
   isExcludedPath?: ((relPath: string) => boolean) | undefined;
 }
 
@@ -142,7 +147,9 @@ export class LocalWorkspace implements CodeSearchWorkspace {
     this.maxReadBytes = Math.max(1, options.maxReadBytes ?? LOCAL_MAX_READ_BYTES);
     this.excludeGlobs = options.excludeGlobs ?? DEPENDENCY_EXCLUDE_GLOBS;
     this.secretGlobs = options.secretGlobs ?? SECRET_EXCLUDE_GLOBS;
-    this.isExcludedPath = options.isExcludedPath ?? isSecretPath;
+    const isExcluded = options.isExcludedPath ?? isSecretPath;
+    this.isExcludedPath = (relPath) =>
+      isCodeSearchCredentialPath(relPath.replace(/\\/g, "/")) || isExcluded(relPath);
   }
 
   async ripgrep(
