@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-09-30)
 
 The engine is now scout-0.4, ported from OpenGeni's `code_search` (`packages/jev`). Recall, triage and
 passage-check defaults are unchanged; the new stages let an agent read less irrelevant code without
