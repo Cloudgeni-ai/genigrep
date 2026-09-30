@@ -202,11 +202,13 @@ implements over its sandboxes and genigrep implements over a local directory in
   [`src/workspace/excludes.ts`](../src/workspace/excludes.ts) and
   [`src/engine/code-search/recall.ts`](../src/engine/code-search/recall.ts).
 - **Secret files** (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`,
-  `.netrc`, credential JSON files, `.ssh/`, `.aws/`, `.gnupg/`, `.kube/` and others) are excluded
+  `.netrc`, credential JSON files, `.ssh/`, `.aws/`, `.gnupg/`, `.kube/`, `.azure/`, and OpenGeni's
+  `.opengeni/` and `.config/opengeni/` and others) are excluded
   twice, regardless of case: as ripgrep globs (`--iglob`), and by name, because ripgrep searches a
   file it is given explicitly even when a glob excludes it. A path given explicitly that is a link is
   checked by its target too. Example files such as `.env.example` stay searchable.
-- **Credentials directories**: searching from inside `.ssh`, `.aws`, `.gnupg` or `.kube` is refused,
+- **Credentials directories**: searching from inside `.ssh`, `.aws`, `.gnupg`, `.kube`, `.azure`,
+  `.opengeni` or `.config/opengeni` is refused,
   because the exclude globs only match paths below the searched directory.
 - **Bounds**: ripgrep output is capped at 32 MiB per call and cut at a line boundary; one file read
   is capped at 8 MiB; each ripgrep call is killed after its time limit or when the search is
