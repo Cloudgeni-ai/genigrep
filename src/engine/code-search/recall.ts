@@ -40,6 +40,8 @@ export const BUILTIN_EXCLUDES = [
   "!**/.git/**",
   // a linked worktree has a `.git` FILE (gitdir pointer), which --hidden would otherwise search
   "!**/.git",
+  // OpenGeni's per-session sandbox state (Codemode tokens, delivered clients): never workspace code
+  "!**/.opengeni/**",
   "!**/.turbo/**",
   "!*.lock",
   "!**/package-lock.json",
@@ -76,6 +78,8 @@ export interface KeywordInfo {
   idf: number;
   /** Fragments used because the full keyword had zero hits. */
   fragments: string[];
+  /** An identifier added by symbol discovery (not one of the caller's keywords). */
+  symbol?: boolean | undefined;
 }
 
 export interface HitLine {
@@ -108,6 +112,8 @@ export interface RecallResult {
   validPrefixes: string[];
   /** Path-only candidates dropped because their content is binary (NUL in the first 8 KB). */
   binaryDropped: number;
+  /** The best files below the maxCandidates cut (at most 10), for the pack's cap report. */
+  cutTop: Array<{ path: string; lexScore: number }>;
   ms: number;
 }
 
@@ -418,6 +424,8 @@ export function cleanPrefix(p: string): string | null {
   s = s.replace(/\/+$/, "").replace(/\/{2,}/g, "/");
   if (s === "" || s === ".") return ".";
   if (s.startsWith("-") || s.split("/").some((seg) => seg === "..")) return null;
+  // sandbox state (tokens, delivered clients) is never searched, even when named explicitly
+  if (s.split("/").some((seg) => seg === ".opengeni" || seg === ".git")) return null;
   return s;
 }
 
@@ -620,6 +628,11 @@ export async function recall(input: RecallInput): Promise<RecallResult> {
     totalFiles: files.length,
     candidates,
     scoredFiles: scored.length,
+    cutTop: scored
+      .slice(next)
+      .filter((c) => c.hitLines.size > 0)
+      .slice(0, 10)
+      .map((c) => ({ path: c.path, lexScore: c.lexScore })),
     searchPaths,
     widened,
     missingPrefixes: prefixes.missing,
