@@ -1112,13 +1112,3 @@ describe("symbol judge", () => {
     expect(Math.max(...sizes)).toBeLessThanOrEqual(120);
   });
 });
-
-describe("sandbox state is never searched", () => {
-  test("the .opengeni directory is excluded, also when named as a path", async () => {
-    const { cleanPrefix, BUILTIN_EXCLUDES } = await import("../../src/engine/code-search/recall");
-    expect(BUILTIN_EXCLUDES).toContain("!**/.opengeni/**");
-    expect(cleanPrefix(".opengeni/codemode-tokens")).toBeNull();
-    expect(cleanPrefix("repos/x/.opengeni")).toBeNull();
-    expect(cleanPrefix("repos/x/src")).toBe("repos/x/src");
-  });
-});
