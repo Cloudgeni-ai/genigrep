@@ -45,7 +45,10 @@ export const CODE_SEARCH_CREDENTIAL_DIRS: readonly (readonly string[])[] = [
 
 /** Whether a `/`-separated path (workspace-relative or absolute) is inside a credential directory. */
 export function isCodeSearchCredentialPath(path: string): boolean {
-  const segs = path.toLowerCase().split("/");
+  const segs = path
+    .toLowerCase()
+    .split("/")
+    .filter((seg) => seg !== "" && seg !== ".");
   return CODE_SEARCH_CREDENTIAL_DIRS.some((dir) =>
     segs.some((_, i) => dir.every((d, j) => segs[i + j] === d)),
   );

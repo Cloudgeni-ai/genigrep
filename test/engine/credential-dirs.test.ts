@@ -132,6 +132,8 @@ describe("the exclusion rule", () => {
       "home/.Azure",
       ".config/opengeni",
       ".config/OpenGeni/agent",
+      ".config/./opengeni",
+      ".config//opengeni/agent",
       "a/../.opengeni",
     ])
       expect(cleanPrefix(p)).toBeNull();
@@ -161,10 +163,13 @@ describeWithRipgrep("LocalWorkspace keeps credential directories out", () => {
     const root = repo();
     symlinkSync(join(root, ".opengeni"), join(root, "state"));
     const ws = new LocalWorkspace(root, { isExcludedPath: () => false, secretGlobs: [] });
-    expect(await ws.pathKinds([".opengeni", "state", ".config/opengeni/agent"], {})).toEqual({
+    expect(
+      await ws.pathKinds([".opengeni", "state", ".config/opengeni/agent", ".config/./opengeni/agent"], {}),
+    ).toEqual({
       ".opengeni": "missing",
       state: "missing",
       ".config/opengeni/agent": "missing",
+      ".config/./opengeni/agent": "missing",
     });
     expect(await ws.readText(".opengeni/codemode-tokens/0f3a", { maxBytes: 100 })).toBeNull();
     expect(await ws.readText("state/codemode-tokens/0f3a", { maxBytes: 100 })).toBeNull();
@@ -183,12 +188,20 @@ describeWithRipgrep("LocalWorkspace keeps credential directories out", () => {
 
 describe("genigrep's secret rules cover credential directories", () => {
   test("isSecretPath, isSecretDirectory and the case-insensitive globs", () => {
-    for (const p of [".opengeni/x", "a/.OpenGeni/b", ".azure/msal_token_cache.json", ".config/opengeni/c"])
+    for (const p of [
+      ".opengeni/x",
+      "a/.OpenGeni/b",
+      ".azure/msal_token_cache.json",
+      ".config/opengeni/c",
+      ".config/./opengeni/c",
+      ".config//opengeni/agent",
+    ])
       expect(isSecretPath(p)).toBe(true);
     expect(isSecretPath(".config/other/c")).toBe(false);
     expect(isSecretPath(".opengeni-notes/x")).toBe(false);
     expect(isSecretDirectory("/workspace/.opengeni")).toBe(true);
     expect(isSecretDirectory("C:\\Users\\me\\.config\\opengeni")).toBe(true);
+    expect(isSecretDirectory("/home/me/.config/./opengeni")).toBe(true);
     expect(isSecretDirectory("/workspace/src")).toBe(false);
     for (const g of ["!**/.opengeni/**", "!**/.azure/**", "!**/.config/opengeni/**"])
       expect(SECRET_EXCLUDE_GLOBS).toContain(g);
