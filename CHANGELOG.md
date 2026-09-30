@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+The engine is now scout-0.4, ported from OpenGeni's `code_search` (`packages/jev`). Recall, triage and
+passage-check defaults are unchanged; the new stages let an agent read less irrelevant code without
+missing relevant code. On 138 real OpenGeni searches replayed at their own commits, the share of the
+regions agents later edited or cited that the output contains or points to rose from 29% to 57%;
+output grew from 8.8k to 10.6k tokens.
+
+- Symbol discovery: Jev judges the identifiers the relevant files declare, import, call or render, and
+  one ripgrep pass finds the definitions and usages of the chosen ones, so the file behind an import or
+  a sibling call site is found even when no keyword matched it.
+- The most relevant small files are cut into declaration-sized tiles, so every function in them is
+  judged, and a "must change together" judgment adds sibling functions of the top files.
+- Followed leads also bring up to 3 call sites each.
+- The pack shows small relevant files whole, joins nearby passages, ranks import-only spans lower and
+  puts each sub-question's best passage first. A low evidence rating follows more leads once; a
+  middling one fills the rest of the budget with the next-best passages.
+- The output ends with what it did not show: the relevant files with their not-shown line ranges and
+  the functions declared there, every limit that cut something, and keywords that matched nothing or
+  only irrelevant files, with similar identifiers that exist in the workspace. The header tells the
+  reader to read the not-shown ranges before changing code.
+- Structured result: `leads` gains `coverage`, `cuts`, `irrelevantKeywords` and `note`; keyword
+  entries gain `suggestions` and `files`; `morePassages` and `moreFiles` leave out files already in
+  `coverage`, as the text does. Passages gain `uses`, `changeTogether` and `wholeFile`.
+- `.opengeni/` directories (OpenGeni sandbox state) are never searched. A `--in` path inside `.git` or
+  `.opengeni` is ignored and reported as not found.
+- More is sent to Jev per search (identifier shortlists, function signatures, up to 200 passages);
+  Jev cost per search rises by about 80%. See `docs/how-it-works.md`.
+- The skill and CLI help describe the new footer. The MCP tool description and code search
+  instruction are unchanged.
+
 ## 0.1.1 (2026-09-28)
 
 - README: fix the `npx` MCP command (`npx -y @opengeni/genigrep mcp`).

@@ -58,8 +58,9 @@ ggr "Where is the usage limit error classified, and what happens after it?" \
 ## How to use the results
 
 stdout is an evidence pack: a status line with an evidence rating, then the passages verbatim as
-`N| text` lines with their original line numbers, grouped by file, best first, then leads the search
-did not follow. A one-line cost summary goes to stderr.
+`N| text` lines with their original line numbers, grouped by file, best first, then what the pack did
+not show: the relevant files with their not-shown line ranges, the limits that cut something, and
+leads the search did not follow. A one-line cost summary goes to stderr.
 
 - Read the returned passages first and use them directly. Do not re-read the same line ranges with
   `cat`, `sed -n` or a file read; you already have them.
@@ -67,9 +68,11 @@ did not follow. A one-line cost summary goes to stderr.
   see what the search missed. Spend follow-up searches outside those passages: other entry points to
   the same outcome (API routes, automatic or self-service paths), defaults, flags, exceptions and the
   unfollowed leads.
-- Follow leads only as needed. "More candidates" lists verified passages that did not fit, "Leads not
-  followed" lists identifiers whose definitions were not read, and zero-hit keywords point at wrong
-  vocabulary.
+- Before changing code in a file, read the ranges "Relevant files" lists as not shown for it; the
+  functions declared there are named.
+- Follow leads only as needed. "Cut by limits" names what each cap left out, "More candidates" lists
+  verified passages that did not fit, "Leads not followed" lists identifiers whose definitions were not
+  read, and zero-hit keywords point at wrong vocabulary, with similar identifiers that do exist.
 - Verify critical claims before relying on them: read the surrounding code or run a targeted `rg`
   before you state a conclusion as fact or change code based on it.
 - Cite answers as `path:line` from the passages.

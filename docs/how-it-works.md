@@ -10,9 +10,10 @@ three ways:
 - **The agent** (or you) reads the passages and does the reasoning.
 
 This page describes the engine in `src/engine`, the local filesystem adapter in `src/workspace`, the
-output and the MCP server. The numbers below are the defaults in
-[`src/engine/code-search/config.ts`](../src/engine/code-search/config.ts). They were tuned on an
-evaluation set and are the same as in OpenGeni.
+output and the MCP server. The engine is scout-0.4, the version OpenGeni's `code_search` runs. The
+numbers below are the defaults in
+[`src/engine/code-search/config.ts`](../src/engine/code-search/config.ts). They were tuned on
+evaluation sets and are the same as in OpenGeni.
 
 ## Contents
 
@@ -80,48 +81,109 @@ Files with a probability of at least 0.6 are selected, up to 16. The 8 best-rank
 selected, and the 5 best files by keyword score are always kept, so one judge miss cannot drop an
 obvious candidate.
 
-### 3. Passage check (Jev wave 2)
+### 3. Symbols
 
-The selected files are read and cut into passages around their matches. From each match genigrep
-walks up (at most 40 lines) to the enclosing declaration and down (at most 120 lines) to where that
-block closes. It recognises declarations in TypeScript and JavaScript, Rust, Go, Python and YAML,
-headings in Markdown and statements in SQL. When it finds no enclosing declaration, it takes 10
-lines above and 30 below the match and labels the passage with the nearest declaration further up.
+The selected files declare, import, call and render identifiers that no keyword named: the hook behind
+the data, the other handler that mutates the same state. genigrep collects them, ranks them cheaply
+(how many relevant files use them, whether they occur near a keyword hit or share words with the
+question, and whether they are imported or called) and has Jev judge the best 160, each shown with one
+place it occurs. For up to 10 identifiers with a probability of at least 0.5,
+one ripgrep pass finds their definitions and usages across the workspace. An identifier found in more
+than 40 files counts as generic: its definition is still followed, its usages are not.
+
+The files these identifiers lead to join the evidence: up to 6 new files, ranked by their symbol hits
+(files of at most 300 lines are tiled whole, see below), plus up to 3 new windows per file already
+selected. Symbol discovery runs alongside the passage check, and its windows are verified in the same
+Jev round as the leads, so it adds no round of its own.
+
+### 4. Passage check (Jev wave 2)
+
+The most relevant small files (up to 6 files of at most 900 lines, selected with a probability of at
+least 0.6) are cut into declaration-sized tiles of about 20 lines, at most 24 per file, so every
+function and handler in them is judged.
+
+Other selected files are cut into passages around their matches. From each match genigrep walks up
+(at most 40 lines) to the enclosing declaration and down (at most 120 lines) to where that block
+closes. It recognises declarations in TypeScript and JavaScript, Rust, Go, Python and YAML, headings
+in Markdown and statements in SQL. When it finds no enclosing declaration, it takes 10 lines above and
+30 below the match and labels the passage with the nearest declaration further up.
 
 Passages that overlap or nearly touch are merged, passages over 150 lines are split around clusters of
-matches, and each file keeps its best 5. At most 80 passages are checked, taken round-robin across
-files. Lines over 400 characters (1,600 in prose files) are cut with a marker.
+matches, and each file keeps its best 5 (12 for a relevant file too large to tile). At most 200
+passages are checked, taken round-robin across files. Lines over 400 characters (1,600 in prose files)
+are cut with a marker.
 
 Jev scores every passage for relevance and, for each sub-question, for whether the passage shows that
 part of the answer. Passages are sent 4 per request.
 
-### 4. Leads (Jev wave 3)
+In the same round, Jev answers a "must change together" question for up to 60 functions of the three
+most relevant code files (at most 25 per file), each shown by its signature and the calls it makes:
+would a correct answer or change also have to read or change it? Up to 6 functions with a probability
+of at least 0.5 are kept and packed right after each sub-question's best passage. This catches
+sibling code that a literal relevance check scores low, such as another handler that mutates the same
+state.
 
-From the 12 most relevant passages (relevance at least 0.5), genigrep collects identifiers the
-passages use but do not define: called functions, imported names, types, constants and config keys.
-It leaves out the keywords already searched, language built-ins, common helpers and names shorter
-than 4 characters. One ripgrep call locates their definitions, preferring the file where the name was
-seen and then its package. Names with no definition, or whose definition is already in the evidence,
-are dropped, and names defined in many files count less.
+### 5. Leads (Jev wave 3)
+
+From the 12 most relevant passages (relevance at least 0.5, or at least 0.3 when fewer pass),
+genigrep collects identifiers the passages use but do not define: called functions, imported names,
+types, constants and config keys. It leaves out the keywords already searched, language built-ins,
+common helpers and names shorter than 4 characters. One ripgrep call locates their definitions,
+preferring the file where the name was seen and then its package. Names with no definition, or whose
+definition is already in the evidence, are dropped, and names defined in many files count less.
 
 Jev scores up to 60 leads. The definitions of up to 6 leads with a probability of at least 0.5 are
-cut into passages and checked like wave 2. This happens exactly once; genigrep does not follow leads
+cut into passages, together with up to 3 call sites of each (outside the evidence, non-test files
+first; none for a name used in more than 40 files), and checked like wave 2 in one round with the symbol windows. genigrep does not follow leads
 of leads.
 
-### 5. Pack and evidence rating
+### 6. Pack and evidence rating
 
-Passages are packed in this order: for each sub-question, the best passage that covers it; then every
-passage with relevance of at least 0.5, best first; and if fewer than 4 passed, the next best above
-0.1. Documentation and release notes are ranked lower, and a second passage from the same
-file has to beat the best passage of another file by a margin, so the output covers more files.
+Passages are packed in this order: for each sub-question, the best passage that covers it (a weak
+sub-question still gets its best 2 passages with coverage of at least 0.3); then every passage with
+relevance of at least 0.5, best first; and if fewer than 4 passed, the next best above 0.1.
+Documentation and release notes are ranked lower, and so is a passage that is mostly import lines. A
+second passage from the same file has to beat the best passage of another file by a margin, so the
+output covers more files.
 
-The budget is 12,000 tokens by default (`-b`), estimated at 3.2 characters per token. A passage over
-3,200 characters, or one that does not fit, is trimmed to whole lines around its matches (at least 15
-lines) and marked as trimmed. Passages are never cut mid-line.
+The budget is 12,000 tokens by default (`-b`), estimated at 3.2 characters per token; 22% of it is
+reserved for the footer. A relevant file whose whole rendering fits in 5,000 characters is shown
+whole. A passage over 3,200 characters, or one that does not fit, is trimmed to whole lines around
+its matches (at least 15 lines) and marked as trimmed. Passages are never cut mid-line. Two passages
+of one file at most 12 lines apart are joined, because the gap is usually the glue the reader needs.
 
 Finally one Jev request asks whether the packed passages, up to 60,000 characters of them, show the
 answer to the question and to each sub-question. That probability is the **evidence rating** in the
-first line of the output.
+first line of the output. When it is low, the pack adapts once:
+
+- below 0.4, genigrep follows the next leads and call sites, repacks and rates again;
+- below 0.7, it fills the rest of the budget with the next-best passages (relevance at least 0.3);
+  the header then says the rating covers the passages above the bar.
+
+### 7. What the pack did not show
+
+The pack ends with a footer that tells the reader where to look next:
+
+- the relevant files (up to 16), each with the line ranges shown and not shown, the functions declared
+  in the not-shown ranges (up to 16 per file), and verified passages that scored below the bar. Before
+  changing code in one of them, read the not-shown ranges in full;
+- every limit that cut something (files, windows, passages, identifiers, leads, call sites and the
+  token budget), with the cut files and line ranges;
+- other candidates, leads not followed, keywords that matched nothing and keywords that matched only
+  files judged irrelevant, each with similar identifiers that exist in the workspace.
+
+When the footer does not fit its share, the weakest list entries go first; the coverage of the top
+files stays.
+
+In OpenGeni, on 138 real searches replayed at their own commits, scout-0.4 compared with
+scout-0.3.1:
+
+- the share of the regions agents later edited or cited that the pack contains rose from 13% to 18%;
+- the share it contains or points to by line range rose from 29% to 57%;
+- packs grew from 8.8k to 10.6k tokens, and Jev cost per search rose by about 80%.
+
+Most of the added lines are relevant: lines outside any region the agent later used rose 4%, while
+lines inside them rose 49%.
 
 ## Output
 
@@ -132,11 +194,15 @@ The text output on stdout has three parts:
    explaining how to read the passages and that the rating cannot see what the search missed.
 2. **Passages**, grouped by file, best file first. Each starts with
    `== path:start-end  rel 0.96`, followed by the lines verbatim as `N| text` with their original
-   line numbers. The header can also show `[s1]` (covers sub-question 1), `(definition of X)` for a
-   followed lead, `(trimmed from a-b)`, and `in L210: ...` naming the enclosing declaration when the
-   passage starts inside one.
-3. **Leads**: verified passages that did not fit, other candidate files with their triage score,
-   identifiers whose definitions were not followed, and keywords with no hits.
+   line numbers. The header can also show `[s1]` (covers sub-question 1), `(whole file)`,
+   `(definition of X)` for a followed lead, `(uses X)` for a call site of one,
+   `[change together: X]`, `(trimmed from a-b)`, and `in L210: ...` naming the enclosing declaration
+   when the passage starts inside one.
+3. **Footer**: "Relevant files and what this pack did not show" (each file's shown and not-shown
+   ranges, the functions declared in the not-shown ones and passages checked below the bar), "Cut by
+   limits", "More candidates" (verified passages that did not fit and other candidate files with
+   their triage score), "Leads not followed", keywords with zero hits or only irrelevant hits (with
+   similar identifiers found in the workspace), and a note when the search widened beyond `--in`.
 
 stderr gets one summary line with the number of Jev requests, input tokens and cost. `-v` adds the
 keywords used, stage timings and counts; `-q` removes the summary line.
@@ -149,9 +215,14 @@ keywords used, stage timings and counts; `-q` removes the summary line.
 ```
 
 - `status` is `{ label, overall, subs }`, where `overall` and `subs` are the evidence ratings.
-- Each passage is `{ path, start, end, rel, coverage, kind, lines }`, plus `definitionOf`,
-  `trimmedFrom` and `enclosing` when they apply. `kind` is `hit`, `header` or `def`.
-- `leads` is `{ morePassages, moreFiles, leadsNotFollowed, zeroHitKeywords }`.
+- Each passage is `{ path, start, end, rel, coverage, kind, lines }`, plus `definitionOf`, `uses`,
+  `changeTogether`, `wholeFile`, `trimmedFrom` and `enclosing` when they apply. `kind` is `hit`,
+  `header` or `def`.
+- `leads` is the footer as data: `{ coverage, cuts, morePassages, moreFiles, leadsNotFollowed,
+  zeroHitKeywords, irrelevantKeywords, note? }`. Each `coverage` entry is `{ path, lines, shown,
+  notShown, checked, outline?, note? }` with ranges as `[start, end]` pairs; each keyword entry is
+  `{ keyword, fragments, suggestions, files? }`. The lists are complete up to the engine's caps; the
+  text footer may drop entries to fit its budget.
 - `stats` has timings, counts and `jev: { requests, inputTokens, costUsd, model }`.
 - `text` is the rendered text output.
 
@@ -178,7 +249,9 @@ Only the text Jev needs for judging:
 | --- | --- |
 | Every request | The question (inlined when it is at most 600 characters) and the sub-questions. |
 | File triage | Paths of up to 240 candidate files, each with up to 3 matching lines of at most 160 characters. |
-| Passage check | Up to 80 passages plus up to 6 followed definitions, each at most 8,000 characters (4,000 in prose files), with path, line numbers and the enclosing declaration. A small file can fit in one passage. |
+| Symbols | Up to 160 identifier names, each with the path, line and text of one place it occurs. |
+| Passage check | Up to 200 passages (tiles of small relevant files and windows around matches), plus the windows of followed definitions, their call sites and symbol hits, each at most 8,000 characters (4,000 in prose files), with path, line numbers and the enclosing declaration. A small file can fit in one passage. |
+| Change together | Up to 60 function names from the three most relevant code files, each with its path, line, signature and the calls it makes. |
 | Leads | Up to 60 identifier names, each with the path, line and text of the line where it was seen. |
 | Evidence rating | Up to 60,000 characters of the packed passages. |
 
@@ -198,7 +271,8 @@ implements over its sandboxes and genigrep implements over a local directory in
   are absolute paths and paths with `..`.
 - **Ignore rules**: `.gitignore` (also outside a git repository), `.ignore` and `.rgignore`, plus
   built-in lists of dependency, build and cache directories, lock files, minified and generated files,
-  images and archives. The lists are in
+  images and archives, and OpenGeni's `.opengeni/` sandbox state (never searched, even when named).
+  The lists are in
   [`src/workspace/excludes.ts`](../src/workspace/excludes.ts) and
   [`src/engine/code-search/recall.ts`](../src/engine/code-search/recall.ts).
 - **Secret files** (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`,
@@ -267,11 +341,13 @@ help and the header of every result. Keep its meaning if you change any of them.
 
 ## Differences from OpenGeni's code_search
 
-The engine's ranking, thresholds, defaults and Jev prompts are unchanged. genigrep adds:
+The engine's ranking, thresholds, defaults, Jev prompts and text output are unchanged (scout-0.4, as
+in OpenGeni), except that the status line starts with `genigrep`. genigrep adds:
 
 - the local filesystem workspace adapter (OpenGeni runs ripgrep inside its sandboxes and transfers
   the output in compressed chunks);
 - the command line tool, with `auth`, `doctor`, `--json` and exit codes;
 - keywords derived from the question when none are given (not evaluated);
 - the MCP server and the agent skill;
-- structured `passages` and `leads` in the result, and a configurable name for the status line.
+- structured `passages` and `leads` in the result (the footer as data), and a configurable name for
+  the status line.
