@@ -203,6 +203,8 @@ The text output on stdout has three parts:
    limits", "More candidates" (verified passages that did not fit and other candidate files with
    their triage score), "Leads not followed", keywords with zero hits or only irrelevant hits (with
    similar identifiers found in the workspace), and a note when the search widened beyond `--in`.
+4. **Engine version**: the last line, `(engine scout-0.4.0)`, so a saved result shows which engine
+   produced it.
 
 stderr gets one summary line with the number of Jev requests, input tokens and cost. `-v` adds the
 keywords used, stage timings and counts; `-q` removes the summary line.
@@ -271,16 +273,18 @@ implements over its sandboxes and genigrep implements over a local directory in
   are absolute paths and paths with `..`.
 - **Ignore rules**: `.gitignore` (also outside a git repository), `.ignore` and `.rgignore`, plus
   built-in lists of dependency, build and cache directories, lock files, minified and generated files,
-  images and archives, and OpenGeni's `.opengeni/` sandbox state (never searched, even when named).
+  images and archives.
   The lists are in
   [`src/workspace/excludes.ts`](../src/workspace/excludes.ts) and
   [`src/engine/code-search/recall.ts`](../src/engine/code-search/recall.ts).
 - **Secret files** (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`,
-  `.netrc`, credential JSON files, `.ssh/`, `.aws/`, `.gnupg/`, `.kube/` and others) are excluded
+  `.netrc`, credential JSON files, `.ssh/`, `.aws/`, `.gnupg/`, `.kube/`, `.azure/`,
+  `.config/opengeni/`, OpenGeni's `.opengeni/` sandbox state and others) are excluded
   twice, regardless of case: as ripgrep globs (`--iglob`), and by name, because ripgrep searches a
   file it is given explicitly even when a glob excludes it. A path given explicitly that is a link is
   checked by its target too. Example files such as `.env.example` stay searchable.
-- **Credentials directories**: searching from inside `.ssh`, `.aws`, `.gnupg` or `.kube` is refused,
+- **Credentials directories**: searching from inside `.ssh`, `.aws`, `.gnupg`, `.kube`, `.azure`,
+  `.config/opengeni` or `.opengeni` is refused,
   because the exclude globs only match paths below the searched directory.
 - **Bounds**: ripgrep output is capped at 32 MiB per call and cut at a line boundary; one file read
   is capped at 8 MiB; each ripgrep call is killed after its time limit or when the search is

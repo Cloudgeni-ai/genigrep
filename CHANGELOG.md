@@ -24,8 +24,12 @@ output grew from 8.8k to 10.6k tokens.
 - Structured result: `leads` gains `coverage`, `cuts`, `irrelevantKeywords` and `note`; keyword
   entries gain `suggestions` and `files`; `morePassages` and `moreFiles` leave out files already in
   `coverage`, as the text does. Passages gain `uses`, `changeTogether` and `wholeFile`.
-- `.opengeni/` directories (OpenGeni sandbox state) are never searched. A `--in` path inside `.git` or
-  `.opengeni` is ignored and reported as not found.
+- Every result ends with the engine version, `(engine scout-0.4.0)`.
+- The engine's credential directories (`CODE_SEARCH_CREDENTIAL_DIRS`: `.opengeni/`, `.azure/`,
+  `.config/opengeni/`) are never searched or read, at any depth and regardless of case, like `.ssh/` and
+  `.aws/`: excluded as globs, refused by name and through links, and refused as the searched directory.
+  A `--in` path into one is ignored and reported as not found. `CODE_SEARCH_CREDENTIAL_DIRS` and
+  `isCodeSearchCredentialPath` are exported.
 - Fix: a candidate file whose name starts with `-` no longer fails the search (the local workspace
   refused to read it; a leading dash is now refused only for paths passed to ripgrep, which the engine
   passes as `./-name`).

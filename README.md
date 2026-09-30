@@ -96,6 +96,8 @@ Cut by limits:
 More candidates (not included; read if needed):
   apps/worker/src/activities/agent-turn/errors.ts:1434-1498 (0.49), ...
 Leads not followed: CodexAccountStatus (0.48) @apps/worker/src/activities/agent-turn/errors.ts:1320, ...
+
+(engine scout-0.4.0)
 ```
 
 This goes to stdout. A one-line summary with the number of Jev requests and the time taken goes to
@@ -335,7 +337,7 @@ header. Exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-
 `.rgignore`; binary files; dependency, build and cache directories (`node_modules`, `dist`, `target`,
 `vendor`, `.venv` and more); lock files and minified or generated files; and common secret files
 (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON
-files, `.ssh/`, `.aws/` and others), matched regardless of case. A secret file is skipped even when you
+files, `.ssh/`, `.aws/`, `.azure/` and others), matched regardless of case. A secret file is skipped even when you
 name it or a link to it. `.env.example` stays searchable.
 
 genigrep does not scan file contents for secrets. A credential hard-coded in an ordinary source file
