@@ -78,11 +78,15 @@ export function validateRipgrepArgs(args: readonly string[]): {
   return { flags, paths };
 }
 
-function assertRelativePath(p: string): void {
+/**
+ * A workspace-relative path. A leading "-" is refused only for paths passed to ripgrep (where it would read
+ * as a flag; the engine passes such a file as `./-name`); node:fs reads a file named `-name` safely.
+ */
+function assertRelativePath(p: string, options: { processArg: boolean } = { processArg: true }): void {
   if (
     !p ||
     p.includes("\0") ||
-    p.startsWith("-") ||
+    (options.processArg && p.startsWith("-")) ||
     isAbsolute(p) ||
     /^[A-Za-z]:/.test(p) ||
     p.split(/[\\/]/).includes("..")
@@ -261,7 +265,7 @@ export class LocalWorkspace implements CodeSearchWorkspace {
 
   /** Absolute path of a workspace-relative path; throws when it would leave the root. */
   private inside(path: string): string {
-    if (path !== ".") assertRelativePath(path);
+    if (path !== ".") assertRelativePath(path, { processArg: false });
     const abs = resolve(this.root, path);
     if (!this.contains(abs)) throw new CodeSearchWorkspaceError(`path outside the workspace: ${path}`);
     return abs;

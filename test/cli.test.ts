@@ -113,7 +113,7 @@ describeWithRipgrep("genigrep search", () => {
     expect(r.stderr).toBe("");
     const out = JSON.parse(r.stdout);
     expect(out.genigrep).toMatch(/^\d+\.\d+\.\d+/);
-    expect(out.engine).toBe("scout-0.3.1");
+    expect(out.engine).toBe("scout-0.4.0");
     expect(out.keywordsDerived).toBe(false);
     expect(out.subQuestions).toEqual(["When does a turn compact?"]);
     expect(out.passages.length).toBeGreaterThan(0);

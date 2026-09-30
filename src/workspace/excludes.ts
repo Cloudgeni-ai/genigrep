@@ -7,7 +7,11 @@
  * ever sent to Jev as a file triage hit, and by `isSecretPath`, so an explicitly named path, or a link to
  * one, is neither searched nor read (ripgrep searches explicitly named files even when a glob excludes them).
  * Matching ignores case, so `.ENV` or `Server.PEM` count too, also on case-sensitive file systems.
+ *
+ * The engine's CODE_SEARCH_CREDENTIAL_DIRS (`.opengeni/`, `.azure/`, `.config/opengeni/`) count as
+ * credentials directories here too, like `.ssh/` or `.aws/`.
  */
+import { CODE_SEARCH_CREDENTIAL_DIRS, isCodeSearchCredentialPath } from "../engine/code-search/recall";
 
 /**
  * Files that usually hold credentials, as ripgrep globs matched without regard to case. Example and template
@@ -47,6 +51,7 @@ export const SECRET_EXCLUDE_GLOBS: readonly string[] = [
   "!**/.aws/**",
   "!**/.gnupg/**",
   "!**/.kube/**",
+  ...CODE_SEARCH_CREDENTIAL_DIRS.map((dir) => `!**/${dir.join("/")}/**`),
   "!**/.docker/config.json",
   "!**/gh/hosts.yml",
   "!**/.gem/credentials",
@@ -122,6 +127,7 @@ const SECRET_DIRS = new Set([".ssh", ".aws", ".gnupg", ".kube"]);
  * directory. Matching ignores case, like the `--iglob` globs.
  */
 export function isSecretPath(relPath: string): boolean {
+  if (isCodeSearchCredentialPath(relPath.replace(/\\/g, "/"))) return true;
   const parts = relPath
     .split(/[\\/]+/)
     .filter((p) => p && p !== ".")
@@ -136,10 +142,12 @@ export function isSecretPath(relPath: string): boolean {
 }
 
 /**
- * True for a directory that is, or lies inside, a credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`).
+ * True for a directory that is, or lies inside, a credentials directory (`.ssh`, `.aws`, `.gnupg`, `.kube`,
+ * or one of the engine's CODE_SEARCH_CREDENTIAL_DIRS).
  * The exclude globs match paths relative to the searched directory, so a search rooted inside one of these
  * would not see the directory name; LocalWorkspace refuses such a root instead.
  */
 export function isSecretDirectory(path: string): boolean {
+  if (isCodeSearchCredentialPath(path.replace(/\\/g, "/"))) return true;
   return path.split(/[\\/]+/).some((part) => SECRET_DIRS.has(part.toLowerCase()));
 }

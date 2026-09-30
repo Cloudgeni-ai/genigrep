@@ -128,6 +128,10 @@ describe("isSecretPath", () => {
       ".config/gh/hosts.yml",
       ".cargo/credentials.toml",
       ".gem/credentials",
+      ".opengeni/codemode-tokens/0f3a",
+      "repo/.Azure/msal_token_cache.json",
+      ".config/opengeni/agent.json",
+      ".azure",
     ];
     const ordinary = [
       ".env.example",
@@ -144,6 +148,9 @@ describe("isSecretPath", () => {
       "credentials",
       "src/gh/hosts.ts",
       "cargo/credentials.rs",
+      "src/opengeni/index.ts",
+      ".config/other/opengeni.json",
+      "docs/azure.md",
     ];
     for (const p of secret) expect([p, isSecretPath(p)]).toEqual([p, true]);
     for (const p of ordinary) expect([p, isSecretPath(p)]).toEqual([p, false]);
@@ -194,6 +201,10 @@ describeWithRipgrep("LocalWorkspace", () => {
       ".cargo/credentials.toml",
       ".gem/credentials",
       "src/gh/hosts.ts",
+      ".opengeni/token",
+      ".azure/msal_token_cache.json",
+      ".config/opengeni/agent.json",
+      ".config/other.json",
     ];
     const root = tree(Object.fromEntries(names.map((n) => [n, "token\n"])));
     // Only the secret globs (the default), not the dependency globs.
@@ -277,6 +288,17 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(await ws.readText(".", { maxBytes: 100 })).toBeNull();
   });
 
+  test("reads a file whose name starts with a dash, but never passes it to ripgrep bare", async () => {
+    const root = tree({ "-notes.ts": "needle\n" });
+    const ws = new LocalWorkspace(root);
+    expect((await ws.readText("-notes.ts", { maxBytes: 100 }))?.text).toBe("needle\n");
+    expect(await ws.pathKinds(["-notes.ts"], {})).toEqual({ "-notes.ts": "file" });
+    const search = (path: string) =>
+      ws.ripgrep(["--line-number", "--with-filename", "--no-heading", "-e", "needle", "--", path], timeout);
+    await expect(search("-notes.ts")).rejects.toThrow(/path is not allowed/);
+    expect((await search("./-notes.ts")).stdout).toContain("needle");
+  });
+
   test("never leaves the root", async () => {
     const outside = tree({ "secret.txt": "outside\n" });
     const root = tree({ "in.txt": "inside\n" });
@@ -355,6 +377,9 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(() => new LocalWorkspace(join(home, ".ssh", "keys"))).toThrow(/credentials directory/);
     expect(new LocalWorkspace(join(home, "src")).root).toContain("genigrep-ws-");
     expect(isSecretDirectory("/home/u/.kube")).toBe(true);
+    expect(isSecretDirectory("/home/u/.azure")).toBe(true);
+    expect(isSecretDirectory("/home/u/.config/opengeni/state")).toBe(true);
+    expect(isSecretDirectory("/home/u/.config")).toBe(false);
     expect(isSecretDirectory("/home/u/projects/kube")).toBe(false);
   });
 

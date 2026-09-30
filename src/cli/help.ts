@@ -10,7 +10,8 @@ Usage:
 Search:
   path is the directory to search (default: the current directory); output paths are relative to it.
   The answer is an evidence pack: verbatim, line-numbered passages with their paths, best first, then
-  leads the search did not follow. A one-line cost and time summary goes to stderr.
+  the relevant files with the line ranges the pack did not show, what each limit cut, and leads the
+  search did not follow. A one-line cost and time summary goes to stderr.
 
 Options:
   -k, --keyword <kw>    A likely identifier, file-name fragment, config key, error string or synonym.

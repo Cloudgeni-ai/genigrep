@@ -78,7 +78,7 @@ Example, run against the public OpenGeni repository (`...` marks lines cut here)
 $ ggr "Where is the Codex usage limit error classified?" \
     -k usage_limit_reached,CODEX_USAGE_LIMIT_ERROR_TYPE,classifyCodexUsageLimitError,usageLimit,resets_in_seconds,429,quota,rateLimit
 genigrep: evidence rating 0.94 | 15 passages from 10 files, ~10.5k tokens | 2.3s
-Passages are verbatim with original line numbers (N| text), grouped by file, best first; rel = relevance, [sN] = covers sub-question N. The rating covers only these passages; it cannot see other entry points, defaults, flags or exceptions the search did not return.
+Passages are verbatim with original line numbers (N| text), grouped by file, best first; rel = relevance, [sN] = covers sub-question N. The rating covers only these passages; it cannot see other entry points, defaults, flags or exceptions the search did not return. This shows where to look: before changing code, read the relevant regions in full, including the not-shown ranges listed at the end.
 
 == packages/codex/src/fetch.ts:893-943  rel 0.96
 ...
@@ -88,9 +88,16 @@ Passages are verbatim with original line numbers (N| text), grouped by file, bes
 918| export function classifyCodexUsageLimitError(error: unknown): CodexUsageLimitInfo | null {
 ...
 
+Relevant files and what this pack did not show (read the not-shown ranges in full before changing code there):
+  packages/codex/src/fetch.ts (1210 lines): shown 893-943; not shown 1-892, 944-1210 (declares ...)
+  ...
+Cut by limits:
+  ...
 More candidates (not included; read if needed):
   apps/worker/src/activities/agent-turn/errors.ts:1434-1498 (0.49), ...
 Leads not followed: CodexAccountStatus (0.48) @apps/worker/src/activities/agent-turn/errors.ts:1320, ...
+
+(engine scout-0.4.0)
 ```
 
 This goes to stdout. A one-line summary with the number of Jev requests and the time taken goes to
@@ -250,16 +257,24 @@ If genigrep exits with 3 or 4, search with rg instead.
    camelCase, snake_case and kebab-case variants. Files are scored by how rare the matched keywords
    are. Up to 240 of the best become candidates.
 2. **File triage.** Jev judges each candidate from its path and its three best matching lines.
-3. **Passage check.** genigrep cuts the chosen files into line-numbered passages around the matches,
-   aligned to the enclosing function or section, and Jev scores each passage for relevance and for
-   each sub-question.
-4. **Leads.** Identifiers used in the best passages are scored, and genigrep follows up to six of
-   their definitions, one level deep.
-5. **Pack.** The passages that pass are packed into the token budget, best first. One last Jev call
-   rates how well they answer the question.
+3. **Symbols.** Jev judges the identifiers the chosen files declare, import, call or render. For the
+   ones that matter, one ripgrep pass finds their definitions and usages, so the file behind an import
+   or a sibling call site is found even when no keyword matched it.
+4. **Passage check.** genigrep cuts the most relevant small files into declaration-sized tiles and
+   the other chosen files into passages around the matches, aligned to the enclosing function or
+   section. Jev scores each passage for relevance and for each sub-question, and picks the functions
+   that must change together with the answer.
+5. **Leads.** Identifiers used in the best passages are scored, and genigrep follows up to six of
+   their definitions, one level deep, with up to three call sites of each.
+6. **Pack.** The passages that pass are packed into the token budget, best first; small relevant
+   files are shown whole. One last Jev call rates how well they answer the question. A low rating
+   follows more leads once; a middling one fills the rest of the budget with the next-best passages.
+7. **What it did not show.** The output ends with the relevant files and the line ranges of each that
+   it did not show, every limit that cut something, and keywords that matched nothing, with similar
+   identifiers that do exist.
 
 Jev requests within a stage run in parallel, so a search takes a few seconds. The output is the
-passages verbatim, the leads that were not followed, and the evidence rating. Jev only scores; it
+passages verbatim, the evidence rating, and where to look next. Jev only scores; it
 never writes text. The agent reads the passages and does the reasoning.
 
 More detail, including every limit and threshold: [docs/how-it-works.md](docs/how-it-works.md).
@@ -268,7 +283,8 @@ More detail, including every limit and threshold: [docs/how-it-works.md](docs/ho
 
 The engine was evaluated as OpenGeni's `code_search` tool, inside the OpenGeni agent harness. The
 command line tool, MCP server, skill and derived keywords in this repository were not part of the
-evaluation.
+evaluation. The runs below used scout-0.3.1, the engine of genigrep 0.1; the changes in scout-0.4 are
+measured further down.
 
 Setup: 26 real questions about the OpenGeni codebase (a TypeScript monorepo), answered by the
 agent with and without the tool, graded by two blind graders. The comparison is paired per question.
@@ -288,6 +304,11 @@ Other results:
   is why genigrep fails instead of falling back to keyword ranking when Jev is unavailable.
 - **Bug fixing.** On Terminal-Bench 2.1 and SWE-rebench (12 tasks each, one trial) there was no
   measurable effect.
+- **scout-0.4.** On 138 real OpenGeni searches replayed at their own commits, the share of the code
+  regions agents later edited or cited that the output contains rose from 13% to 18%, and the share it
+  contains or points to by line range from 29% to 57%. Output grew from 8.8k to 10.6k tokens and Jev
+  cost per search rose by about 80%. This measures what the output contains, not answer
+  quality.
 
 Limits: one repository in one language, 26 questions, one agent harness, and a small bug-fixing
 sample. Other codebases, languages and agents may behave differently.
@@ -301,7 +322,11 @@ judge:
 
 - the question and sub-questions;
 - the paths of up to 240 candidate files, each with up to 3 matching lines;
-- up to 80 passages being checked, plus up to 6 followed definitions, each at most 8,000 characters;
+- up to 160 identifier names from the chosen files, each with one line it appears on;
+- up to 200 passages being checked, plus followed definitions, their call sites and symbol hits, each
+  at most 8,000 characters;
+- up to 60 function names from the three most relevant files, with their signatures and the calls
+  they make;
 - up to 60 identifier names with the line they appear on;
 - up to 60,000 characters of the final packed passages, for the rating.
 
@@ -312,7 +337,7 @@ header. Exact limits are in [docs/how-it-works.md](docs/how-it-works.md#what-is-
 `.rgignore`; binary files; dependency, build and cache directories (`node_modules`, `dist`, `target`,
 `vendor`, `.venv` and more); lock files and minified or generated files; and common secret files
 (`.env` and its variants, private keys, `*.tfvars`, `*.tfstate`, `.npmrc`, `.netrc`, credential JSON
-files, `.ssh/`, `.aws/` and others), matched regardless of case. A secret file is skipped even when you
+files, `.ssh/`, `.aws/`, `.azure/` and others), matched regardless of case. A secret file is skipped even when you
 name it or a link to it. `.env.example` stays searchable.
 
 genigrep does not scan file contents for secrets. A credential hard-coded in an ordinary source file

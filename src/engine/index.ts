@@ -40,13 +40,16 @@ export {
   CODE_SEARCH_DEFAULT_BUDGET_TOKENS,
   CODE_SEARCH_ENGINE_VERSION,
   runCodeSearch,
+  type CodeSearchCoverage,
   type CodeSearchInput,
+  type CodeSearchKeywordNote,
   type CodeSearchLeads,
   type CodeSearchPassage,
   type CodeSearchResult,
   type CodeSearchStats,
   type CodeSearchStatus,
 } from "./code-search/search";
+export { CODE_SEARCH_CREDENTIAL_DIRS, isCodeSearchCredentialPath } from "./code-search/recall";
 export {
   CODE_SEARCH_MAX_PATTERN_CHARS,
   CodeSearchRipgrepMissingError,
