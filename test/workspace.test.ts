@@ -277,6 +277,17 @@ describeWithRipgrep("LocalWorkspace", () => {
     expect(await ws.readText(".", { maxBytes: 100 })).toBeNull();
   });
 
+  test("reads a file whose name starts with a dash, but never passes it to ripgrep bare", async () => {
+    const root = tree({ "-notes.ts": "needle\n" });
+    const ws = new LocalWorkspace(root);
+    expect((await ws.readText("-notes.ts", { maxBytes: 100 }))?.text).toBe("needle\n");
+    expect(await ws.pathKinds(["-notes.ts"], {})).toEqual({ "-notes.ts": "file" });
+    const search = (path: string) =>
+      ws.ripgrep(["--line-number", "--with-filename", "--no-heading", "-e", "needle", "--", path], timeout);
+    await expect(search("-notes.ts")).rejects.toThrow(/path is not allowed/);
+    expect((await search("./-notes.ts")).stdout).toContain("needle");
+  });
+
   test("never leaves the root", async () => {
     const outside = tree({ "secret.txt": "outside\n" });
     const root = tree({ "in.txt": "inside\n" });

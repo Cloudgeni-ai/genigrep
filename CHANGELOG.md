@@ -26,6 +26,9 @@ output grew from 8.8k to 10.6k tokens.
   `coverage`, as the text does. Passages gain `uses`, `changeTogether` and `wholeFile`.
 - `.opengeni/` directories (OpenGeni sandbox state) are never searched. A `--in` path inside `.git` or
   `.opengeni` is ignored and reported as not found.
+- Fix: a candidate file whose name starts with `-` no longer fails the search (the local workspace
+  refused to read it; a leading dash is now refused only for paths passed to ripgrep, which the engine
+  passes as `./-name`).
 - More is sent to Jev per search (identifier shortlists, function signatures, up to 200 passages);
   Jev cost per search rises by about 80%. See `docs/how-it-works.md`.
 - The skill and CLI help describe the new footer. The MCP tool description and code search
