@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 (2026-10-01)
+
+- "Must change together" declarations are packed after the passages that passed the relevance bar
+  instead of before them, so they no longer push verified passages out of the token budget (found by
+  OpenGeni's held-out replay of real searches).
+- The engine is labelled `scout-0.4.1` in the closing `(engine ...)` line and in `--json` output.
+
 ## 0.2.0 (2026-09-30)
 
 The engine is now scout-0.4, ported from OpenGeni's `code_search` (`packages/jev`). Recall, triage and

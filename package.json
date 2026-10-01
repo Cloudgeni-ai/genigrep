@@ -1,6 +1,6 @@
 {
   "name": "@opengeni/genigrep",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Ask a question about a codebase, get back only the source that answers it. Jev-ranked code search for coding agents.",
   "license": "Apache-2.0",
   "author": "Cloudgeni",
